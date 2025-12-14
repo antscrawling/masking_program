@@ -1,0 +1,4 @@
+This is a medium-sized test file that should trigger multiple chunks in RSA encryption.
+It contains enough text to exceed the 245-byte RSA chunk limit when base64 encoded.
+Let me add more text here to make sure it's definitely large enough to require chunking.
+This should test the chunking functionality properly without being too large.
