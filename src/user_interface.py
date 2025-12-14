@@ -217,29 +217,7 @@ Keep your private keys secure and never share them. Always backup your keys in a
     
 def main():
     show_main_menu("TinyEncryptor Main Menu")
-
-
-
-
-
-
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
-
-
-
-
-
-
+                            
 
         
 if __name__ == "__main__":
