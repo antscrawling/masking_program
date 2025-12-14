@@ -53,99 +53,72 @@ def show_main_menu(title: str) -> None:
         "Help": ["User Guide", "FAQ", "About"],
     }
 
-    # Handler for non-dropdown actions
+    # Helpers to interact with the info panel and dialogs
+    def clear_info():
+        info_text.configure(state="normal")
+        info_text.delete("1.0", "end")
+        info_text.configure(state="disabled")
+
+    def set_info(content: str):
+        info_text.configure(state="normal")
+        info_text.delete("1.0", "end")
+        info_text.insert("1.0", content)
+        info_text.configure(state="disabled")
+
+    def ask_passphrase() -> str | None:
+        dialog = customtkinter.CTkInputDialog(text="Enter passphrase (optional)", title="Passphrase")
+        return dialog.get_input()
+
+    def choose_files(multiple: bool = True) -> list[str]:
+        if multiple:
+            return list(filedialog.askopenfilenames(title="Select Files"))
+        sel = filedialog.askopenfilename(title="Select File")
+        return [sel] if sel else []
+
+    # Handler for dropdown selections and Exit
     def menu_action(choice: str):
         if choice == "Exit":
             app.destroy()
-        elif choice == "Fernet":
-            messagebox.showinfo("Fernet Selected", "You selected Fernet key import.")
-            # erase the Info panel content
-            # and ask for a Fernet key to import 
-            # by data or by file.:
-        elif choice == "RSA Key":
-            messagebox.showinfo("RSA Key Selected", "You selected RSA key import.")            
-            # erase the Info panel content
-            # and ask to import an RSA Key manually or
-            # by file.
-        elif choice == "2048-bit":
-            messagebox.showinfo("Key Generation", "Generating 2048-bit RSA Key Pair.")
-            # erase the Info panel content
-            # generate 2048 bit rsa key pair
-            # ask for passphrase for private key encryption
-            # display this in the info panel and ensure that user
-            # is able to copy it.  
-            # ask the user if they want to save the key to a file.
-        elif choice == "3072-bit":
-            messagebox.showinfo("Key Generation", "Generating 3072-bit RSA Key Pair.")
-            # erase the Info panel content
-            # generate 3072 bit rsa key pair
-            # ask for passphrase for private key encryption
-# display this in the info panel and ensure that user
-# is able to copy it.  
-# ask the user if they want to save the key to a file.
-        elif choice == "4096-bit":
-            messagebox.showinfo("Key Generation", "Generating 4096-bit RSA Key Pair.")
-            # erase the Info panel content
-            # generate 4096 bit rsa key pair
-        # ask for passphrase for private key encryption
-# display this in the info panel and ensure that user
-# is able to copy it.  
-# ask the user if they want to save the key to a file.
-        elif choice == "Public Key":
-            messagebox.showinfo("Retrieve Key", "Retrieving Public RSA Keys.")
-            # erase the Info panel content
-            # retrieve and display public rsa keys stored
-            # in the application storage.
-            # ensure that the user is able to copy the key
-        elif choice == "Private Key":
-            messagebox.showinfo("Retrieve Key", "Retrieving Private RSA Keys.")
-            # erase the Info panel content
-            # retrieve and display private rsa keys stored
-            # in the application storage.
-            # ensure that the user is able to copy the key
-        elif choice == "Encrypt Data":
-            messagebox.showinfo("Encrypt Data", "You selected to encrypt data.")
-            # erase the Info panel content
-            # ask user to input data to encrypt
-            # ask user to select encryption method (Fernet or RSA)
-            # display encrypted data in info panel
-            # if rsa encryption, ensure to ask for the
-            # paraphrase 
-            # ensure that the encrypted data can be 
-            # copied from the info panel.
-        elif choice ==  "Encrypt File":
-            messagebox.showinfo("Encrypt File", "You selected to encrypt a file.")
-# erase the Info panel content
-# display files selection from the directory
-# user should be able to select multiple files
-# ask user to enter the paraphrase for rsa encryption
-# ask user to select encryption method (Fernet or RSA)
-# for very large files, fernet is recommended
-# for fernet, generate a key and display it
-# in the info panel for user to copy and store safely.
-# allow user to save the key
-# generated file will have the original+<encrypted>.ext 
-# file type should be preserved.
-# ensure that user can select output directory
-# display success message in info panel
-
-        elif choice ==  "Decrypt Data":
-            messagebox.showinfo("Decrypt Data", "You selected to decrypt data.")
-# erase the Info panel content
-# ask user to input encrypted data  to decrypt
-# ask user to enter the key/passphrase for decryption
-# display decrypted data in info panel
-# ask user if they want to save the decrypted data to a file
-
-        elif choice ==  "Decrypt File":
-            messagebox.showinfo("Decrypt File", "You selected to decrypt a file.")
-            # erase the Info panel content
-# display all the files from the root directory
-# allow users to select files to    decrypt
-# ask user to enter the key/passphrase for decryption
-# ask user the destination directory for decrypted files
-# display success message in info panel with the list of decrypted
-# files and their locations.
+            return
+        if choice == "Fernet":
+            clear_info()
+            set_info("Import Fernet key: paste a key or choose a file.")
+            return
+        if choice == "RSA Key":
+            clear_info()
+            set_info("Import RSA key: paste PEM content or choose a file.")
+            return
+        if choice in {"2048-bit", "3072-bit", "4096-bit"}:
+            clear_info()
+            passphrase = ask_passphrase() or ""
+            set_info(f"Generate RSA key pair ({choice}) with passphrase length: {len(passphrase)}")
+            return
+        if choice == "Public Key":
+            clear_info()
+            set_info("Showing stored public RSA keys…")
+            return
+        if choice == "Private Key":
+            clear_info()
+            set_info("Showing stored private RSA keys…")
+            return
+        if choice == "Encrypt Data":
+            clear_info()
+            set_info("Enter data to encrypt in a forthcoming dialog.")
+            return
+        if choice == "Encrypt File":
+            clear_info()
+            files = choose_files(multiple=True)
+            set_info(f"Selected files to encrypt: {os.linesep}" + os.linesep.join(files))
+            return
+        if choice == "Decrypt Data":
+            clear_info()
+            set_info("Enter encrypted data and key/passphrase in a forthcoming dialog.")
+            return
+        if choice == "Decrypt File":
+            clear_info()
+            files = choose_files(multiple=True)
+            set_info(f"Selected files to decrypt: {os.linesep}" + os.linesep.join(files))
+            return
 
 
 
@@ -165,7 +138,7 @@ def show_main_menu(title: str) -> None:
     def show_dropdown(anchor_widget: tk.Widget, items: list[str]):
         menu = tk.Menu(app, tearoff=0)
         for item in items:
-            menu.add_command(label=item, command=lambda val=item: print(f"Selected: {val}"))
+            menu.add_command(label=item, command=lambda val=item: menu_action(val))
         # Position menu just under the anchor widget
         x = anchor_widget.winfo_rootx()
         y = anchor_widget.winfo_rooty() + anchor_widget.winfo_height()
