@@ -1,8 +1,5 @@
-import  cryptography
 import os
 import pathlib
-import sys
-import time
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
@@ -25,7 +22,8 @@ def write_file(file_path: str, data: dict) -> None:
     if os.path.exists(file_path):
         try:
             existing_data = open_file(file_path)
-        except:
+        except Exception as e:
+            print(f'Error reading existing file: {e}')
             existing_data = {}
     
     # Merge new data with existing data
@@ -34,13 +32,14 @@ def write_file(file_path: str, data: dict) -> None:
     with open(file_path, 'w') as file:
         json.dump(existing_data, file, indent=4)
 
-def generate_rsa_key_pair(passphrase=None):
+def generate_rsa_key_pair(passphrase=None, key_size=2048) -> tuple:
     """Generate RSA public and private key pair with optional passphrase protection"""
     try:
         # Generate private key
+        key_size = max(2048, key_size)  # Ensure minimum key size of 2048 bits
         private_key = rsa.generate_private_key(
             public_exponent=65537,
-            key_size=2048
+            key_size=key_size 
         )
         
         # Get public key from private key
@@ -73,7 +72,7 @@ def generate_rsa_key_pair(passphrase=None):
         print(f'Error generating RSA key pair: {e}')
         return None, None, None
 
-def retrieve_rsa_keys():
+def retrieve_rsa_keys() -> tuple:
     """Retrieve and display saved RSA keys from files"""
     private_key_file = 'private_key.pem'
     public_key_file = 'public_key.pem'
@@ -98,97 +97,29 @@ def retrieve_rsa_keys():
         print("\n--- PUBLIC KEY (Safe to share) ---")
         print(public_key)
         
-        return True
+        return True, private_key, public_key
         
     except Exception as e:
         print(f"Error retrieving RSA keys: {e}")
-        return False
+        return False, None, None
 
-def import_external_rsa_keys():
+def import_external_rsa_keys(private : str = None, public : str = None, passphrase: str = None) -> tuple:
     """Import external RSA keys from user input"""
     try:
-        print("\n=== Import External RSA Keys ===")
-        print("Choose import method:")
-        print("1. Paste keys interactively")
-        print("2. Use keys from file")
+        # Validate inputs
+        if not public or not private:
+            print("❌ Both public and private keys are required")
+            return False, None, None
         
-        choice = input("Choose method (1-2): ")
-        
-        if choice == "2":
-            return import_keys_from_notes()
-        elif choice != "1":
-            print("Invalid choice.")
-            return False
-        
-        print("\nInteractive key import:")
-        print("1. Paste each key as a single long line, then press Enter")
-        print("2. Or paste with proper formatting and type 'DONE' when finished\n")
-        
-        # Import public key
-        print("--- PUBLIC KEY ---")
-        print("Paste your public key:")
-        public_key_content = ""
-        
-        try:
-            while True:
-                line = input()
-                
-                # Check if it's a DONE command
-                if line.strip().upper() == "DONE":
-                    break
-                
-                # Check if this looks like a complete key (long base64 string)
-                if len(line.strip()) > 200 and not line.startswith("-----"):
-                    public_key_content = line.strip()
-                    print("✓ Public key received")
-                    break
-                
-                # Handle regular multi-line input
-                public_key_content += line + "\n"
-                
-                # Check if we have a complete PEM key
-                if "-----END" in line:
-                    break
-                    
-        except EOFError:
-            if not public_key_content:
-                print("❌ No public key provided")
-                return False
-        
-        # Import private key
-        print("\n--- PRIVATE KEY ---")
-        print("Paste your private key:")
-        private_key_content = ""
-        
-        try:
-            while True:
-                line = input()
-                
-                # Check if it's a DONE command
-                if line.strip().upper() == "DONE":
-                    break
-                
-                # Check if this looks like a complete key (long base64 string)
-                if len(line.strip()) > 500 and not line.startswith("-----"):
-                    private_key_content = line.strip()
-                    print("✓ Private key received")
-                    break
-                
-                # Handle regular multi-line input
-                private_key_content += line + "\n"
-                
-                # Check if we have a complete PEM key
-                if "-----END" in line:
-                    break
-                    
-        except EOFError:
-            if not private_key_content:
-                print("❌ No private key provided")
-                return False
+        print("\n--- IMPORTING RSA KEYS ---")
+        print("✓ Public key received")
+        print("✓ Private key received")
+        if passphrase:
+            print(f"✓ Passphrase received ({len(passphrase)} chars)")
         
         # Format keys properly
-        public_key_formatted = format_rsa_key(public_key_content, "PUBLIC")
-        private_key_formatted = format_rsa_key(private_key_content, "PRIVATE")
+        public_key_formatted = format_rsa_key(public, "PUBLIC")
+        private_key_formatted = format_rsa_key(private, "PRIVATE")
         
         if not public_key_formatted or not private_key_formatted:
             print("❌ Failed to format keys properly.")
@@ -200,10 +131,16 @@ def import_external_rsa_keys():
             serialization.load_pem_public_key(public_key_formatted.encode())
             
             # Test private key (might need passphrase)
+            password_bytes = passphrase.encode() if passphrase else None
             try:
-                serialization.load_pem_private_key(private_key_formatted.encode(), password=None)
-            except (TypeError, ValueError):
-                # Key is encrypted, that's okay
+                serialization.load_pem_private_key(private_key_formatted.encode(), password=password_bytes)
+                print("✓ Private key validated successfully" + (" with passphrase" if passphrase else ""))
+            except (TypeError, ValueError) as e:
+                if passphrase:
+                    print(f"❌ Failed to decrypt private key with provided passphrase: {e}")
+                    return False, None, None
+                # Key is encrypted but no passphrase provided, that's okay for storage
+                print("⚠️  Private key appears to be encrypted - passphrase will be needed for decryption")
                 pass
             
             # Save keys to files
@@ -221,15 +158,15 @@ def import_external_rsa_keys():
             else:
                 print("⚠️  Your private key is not encrypted.")
             
-            return True
+            return True, private_key_formatted, public_key_formatted
             
         except Exception as e:
             print(f"❌ Invalid key format: {e}")
-            return False
+            return False, None, None
             
     except Exception as e:
         print(f"Error importing keys: {e}")
-        return False
+        return False, None, None  
 
 def format_rsa_key(key_content: str, key_type: str) -> str:
     """Format RSA key with proper headers and line breaks"""
@@ -241,9 +178,57 @@ def format_rsa_key(key_content: str, key_type: str) -> str:
         content = content.replace("-----END PRIVATE KEY-----", "")
         content = content.replace("-----BEGIN ENCRYPTED PRIVATE KEY-----", "")
         content = content.replace("-----END ENCRYPTED PRIVATE KEY-----", "")
+        content = content.replace("-----BEGIN RSA PRIVATE KEY-----", "")
+        content = content.replace("-----END RSA PRIVATE KEY-----", "")
         
         # Remove all whitespace and newlines
         content = ''.join(content.split())
+        
+        if not content:
+            print("❌ Empty key content after cleanup")
+            return None
+        
+        # For private keys, try to detect and trim duplicated/extra data
+        if key_type != "PUBLIC":
+            try:
+                import base64
+                # Try to decode and find where the valid key ends
+                decoded = base64.b64decode(content)
+                
+                # Parse ASN.1 to find the actual key length
+                # PKCS#8 keys start with a SEQUENCE tag (0x30) followed by length
+                if decoded[0] == 0x30:
+                    # Parse the length field
+                    if decoded[1] & 0x80:
+                        # Long form length - first byte tells us how many bytes encode the length
+                        num_length_bytes = decoded[1] & 0x7f
+                        if num_length_bytes > 0 and num_length_bytes <= 4:  # Sanity check
+                            total_length = int.from_bytes(decoded[2:2+num_length_bytes], byteorder='big')
+                            # Total key size includes tag (1), length indicator (1), length bytes, and content
+                            actual_key_size = 1 + 1 + num_length_bytes + total_length
+                        else:
+                            print(f"⚠️  Unexpected length encoding: {num_length_bytes} bytes")
+                            actual_key_size = len(decoded)
+                    else:
+                        # Short form length - the byte directly gives the length
+                        total_length = decoded[1]
+                        actual_key_size = 1 + 1 + total_length
+                    
+                    # If we detected extra data, trim the base64 to just the valid key
+                    if actual_key_size < len(decoded):
+                        extra_bytes = len(decoded) - actual_key_size
+                        print(f"⚠️  Detected and trimming {extra_bytes} bytes of extra data (original: {len(decoded)} bytes, valid: {actual_key_size} bytes)")
+                        # Re-encode just the valid portion
+                        valid_key = decoded[:actual_key_size]
+                        content = base64.b64encode(valid_key).decode('ascii')
+                        print(f"✓ Key trimmed successfully to {len(content)} base64 characters")
+                    else:
+                        print(f"✓ No extra data detected (key size: {len(decoded)} bytes)")
+                else:
+                    print(f"⚠️  Unexpected key format - doesn't start with SEQUENCE tag (found: 0x{decoded[0]:02x})")
+            except Exception as e:
+                print(f"⚠️  Could not detect key boundaries: {type(e).__name__}: {e}")
+                print(f"    Proceeding with full content ({len(content)} base64 chars)")
         
         # Add line breaks every 64 characters
         lines = []
@@ -255,8 +240,24 @@ def format_rsa_key(key_content: str, key_type: str) -> str:
             header = "-----BEGIN PUBLIC KEY-----"
             footer = "-----END PUBLIC KEY-----"
         else:
-            # Check if it's encrypted by trying to decode and looking for encryption markers
-            if "ENCRYPTED" in key_content.upper() or len(content) > 1500:  # Encrypted keys are typically longer
+            # For private keys, try to detect if encrypted by decoding the base64 and checking the ASN.1 structure
+            is_encrypted = False
+            try:
+                import base64
+                decoded = base64.b64decode(content)
+                # PKCS#8 encrypted keys start with sequence identifier 0x30 followed by specific OIDs
+                # Check for PBES2 encryption scheme OID (PKCS#5 v2.0)
+                # Encrypted PKCS#8 keys have "1.2.840.113549.1.5.13" OID
+                if b'\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x05\x0d' in decoded[:100]:
+                    is_encrypted = True
+                # Also check for older PBES1 schemes
+                elif b'\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x05\x0c' in decoded[:100]:
+                    is_encrypted = True
+            except Exception:
+                # If we can't decode, check by length (encrypted keys are typically longer)
+                is_encrypted = len(content) > 1500
+            
+            if is_encrypted:
                 header = "-----BEGIN ENCRYPTED PRIVATE KEY-----"
                 footer = "-----END ENCRYPTED PRIVATE KEY-----"
             else:
@@ -271,7 +272,7 @@ def format_rsa_key(key_content: str, key_type: str) -> str:
         print(f"Error formatting key: {e}")
         return None
 
-def import_keys_from_notes():
+def choose_file_to_import_keys():
     """Import keys from notes.txt file"""
     try:
         # Get all files in current directory
@@ -310,8 +311,16 @@ def import_keys_from_notes():
         if file_index < 0 or file_index >= len(files):
             print("❌ File number out of range.")
             return False
-            
-        notes_file = str(files[file_index])
+
+        selected_file = str(files[file_index])
+        return import_keys_from_file(filepath=selected_file)
+        
+    except Exception as e:
+        print(f"❌ Error importing from file: {e}")
+        return False
+
+def import_keys_from_file(filepath: str) -> bool:            
+        notes_file = filepath
         print(f"📖 Selected file: {notes_file}")
         
         if not os.path.exists(notes_file):
@@ -366,9 +375,9 @@ def import_keys_from_notes():
         
         return True
         
-    except Exception as e:
-        print(f"❌ Error importing from notes.txt: {e}")
-        return False
+    
+    
+    
 
 def encrypt_file_with_fernet(file_path: str) -> tuple:
     """Encrypt a file using Fernet encryption"""
@@ -746,7 +755,7 @@ def main():
                         name, ext = os.path.splitext(filename)
                         while True:
                             save_choice = input("Would you like to save the encryption key to a file? (y/n): ").lower()
-                            if not save_choice in ['y', 'n']:
+                            if save_choice not in ['y', 'n']:
                              
                                 print("Invalid choice. Please enter 'y' or 'n'.")
                             elif save_choice == 'y':
@@ -944,7 +953,7 @@ def main():
         
         elif option == '4':
             print("Retrieving saved RSA keys...")
-            retrieve_rsa_keys()
+            is_retrieved, myprivate, mypublic = retrieve_rsa_keys()
         
         elif option == '5':
             print("Importing external RSA keys...")
@@ -960,4 +969,4 @@ def test():
     
 if __name__ == "__main__":
    main()
-   test()
+  # test()

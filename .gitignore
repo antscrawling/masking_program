@@ -12,3 +12,5 @@ encrypted_data.json
 notes.txt
 private_key.pem
 public_key.pem
+src/user_interface.py
+src/unotes.txt
