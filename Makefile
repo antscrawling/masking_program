@@ -19,7 +19,8 @@ help:
 	@echo "  install    - Install dependencies from requirements.txt"
 	@echo "  upgrade    - Upgrade all deps to latest within constraints"
 	@echo "  freeze     - Regenerate requirements.txt from current venv"
-	@echo "  run        - Run the application UI"
+	@echo "  run        - Run the application UI (default: src/user_interface.py)"
+	@echo "               Usage: make run [script.py] or make run SCRIPT=path/to/script.py"
 	@echo "  clean      - Remove virtual env"
 
 .PHONY: brew
@@ -70,7 +71,17 @@ freeze: venv
 
 .PHONY: run
 run:
-	$(PY) src/user_interface.py
+	@if [ -n "$(word 2,$(MAKECMDGOALS))" ]; then \
+		uv run $(word 2,$(MAKECMDGOALS)); \
+	elif [ -n "$(SCRIPT)" ]; then \
+		uv run $(SCRIPT); \
+	else \
+		uv run src/user_interface.py; \
+	fi
+
+# Catch-all target to prevent errors when passing script names
+%:
+	@:
 
 .PHONY: clean
 clean:
