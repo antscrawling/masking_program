@@ -38,13 +38,17 @@ pyenv:
 .PHONY: venv
 venv:
 	@command -v pyenv >/dev/null 2>&1 || { echo "pyenv is not installed. Run 'make brew' first."; exit 1; }
-	PYTHON_PATH=$$(pyenv prefix $(PYTHON_VERSION))/bin/python3 && \
-		$$PYTHON_PATH -m venv $(VENV_DIR)
-	@echo "Virtual environment created at $(VENV_DIR) using Python $(PYTHON_VERSION)."
+	@if [ ! -d $(VENV_DIR) ]; then \
+		PYTHON_PATH=$$(pyenv prefix $(PYTHON_VERSION))/bin/python3 && \
+		$$PYTHON_PATH -m venv $(VENV_DIR) && \
+		$(VENV_DIR)/bin/python -m pip install --upgrade pip; \
+		echo "Virtual environment created at $(VENV_DIR) using Python $(PYTHON_VERSION)."; \
+	else \
+		echo "Virtual environment already exists at $(VENV_DIR)."; \
+	fi
 
 .PHONY: install
 install: venv
-	$(PIP) install --upgrade pip
 	@if [ -f requirements.txt ]; then \
 		$(PIP) install -r requirements.txt; \
 	else \
