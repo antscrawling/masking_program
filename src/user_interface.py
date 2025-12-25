@@ -3,9 +3,15 @@ from  pathlib import Path
 import customtkinter
 import tkinter as tk
 from tkinter import messagebox, filedialog 
+from cryptography.fernet import Fernet
+
+
 
 ROOT_DIR = Path(__file__).parent.resolve()
-
+BLUE = f"{"#1f6aa5"}"
+RED = f"{"#c91658"}"
+BLACK  = f"{"#0d0c0d"}"
+RESET = f"{"#ffffff"}"
 
 def display_message_dialog(parent, title: str, message: str):
     """Display a message in a dialog window"""
@@ -44,11 +50,18 @@ def clear_info(info_text):
     info_text.configure(state="disabled")
 
 
-def set_info(info_text, content: str):
-    """Set content in the information panel"""
+def set_info(info_text, content: str, color: str = BLACK, bold: bool = False, italic: bool = False):
+    """Set content in the information panel with custom formatting
+    Note: bold and italic parameters are not used due to customtkinter limitations
+    """
     info_text.configure(state="normal")
     info_text.delete("1.0", "end")
     info_text.insert("1.0", content)
+    
+    # Apply color formatting using tags (font styling not supported by customtkinter)
+    #info_text.tag_add("custom_format", "1.0", "end")
+    info_text.tag_config("custom_format", foreground=color)
+    
     info_text.configure(state="disabled")
 
 
@@ -90,6 +103,56 @@ def show_dropdown(parent, anchor_widget: tk.Widget, items: list[str], menu_actio
         menu.tk_popup(x, y)
     finally:
         menu.grab_release()
+
+
+def import_keys(public_key_text, private_key_text, passphrase_text, info_text, key_dialog):
+    """Import RSA keys from text widgets"""
+    public_key = public_key_text.get("1.0", "end").strip()
+    private_key = private_key_text.get("1.0", "end").strip()
+    passphrase = passphrase_text.get("1.0", "end").strip()
+    
+    if not public_key or not private_key:
+        messagebox.showerror("Error", "Both public and private keys are required!")
+        return
+    
+    # Validate minimum lengths
+    if len(public_key) < 200:
+        messagebox.showerror("Error", f"Public key seems too short ({len(public_key)} chars). Expected at least 200 characters.")
+        return
+        
+    if len(private_key) < 500:
+        messagebox.showerror("Error", f"Private key seems too short ({len(private_key)} chars). Expected at least 500 characters.")
+        return
+    
+    # Import main module to access import function
+    try:
+        import sys
+        sys.path.insert(0, str(ROOT_DIR))
+        import main
+        
+        # Call the import function from main.py with passphrase if provided
+        result = main.import_external_rsa_keys(
+            private=private_key, 
+            public=public_key, 
+            passphrase=passphrase if passphrase else None
+        )
+        
+        if result and result[0]:
+            messagebox.showinfo("Success", "RSA keys imported successfully!")
+            passphrase_info = f"{os.linesep}Passphrase: {'provided' if passphrase else 'not provided'}"
+            set_info(info_text, f"✓ RSA keys imported and saved{os.linesep}Public Key: {len(public_key)} chars{os.linesep}Private Key: {len(private_key)} chars{passphrase_info}")
+            key_dialog.destroy()
+        else:
+            error_msg = "Failed to import keys. Please check:\n"
+            error_msg += "• Keys are in valid format\n"
+            error_msg += "• Private key passphrase is correct (if encrypted)\n"
+            error_msg += "• No extra text mixed with key data"
+            messagebox.showerror("Import Failed", error_msg)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Import error details:\n{error_details}")
+        messagebox.showerror("Error", f"Import failed: {str(e)}\n\nCheck console for details.")
 
 
 def menu_action(app, info_text, choice: str):
@@ -164,59 +227,11 @@ def menu_action(app, info_text, choice: str):
         passphrase_text.pack(pady=5, padx=20)
        
         # Import button
-        def import_keys():
-            public_key = public_key_text.get("1.0", "end").strip()
-            private_key = private_key_text.get("1.0", "end").strip()
-            passphrase = passphrase_text.get("1.0", "end").strip()
-            
-            if not public_key or not private_key:
-                messagebox.showerror("Error", "Both public and private keys are required!")
-                return
-            
-            # Validate minimum lengths
-            if len(public_key) < 200:
-                messagebox.showerror("Error", f"Public key seems too short ({len(public_key)} chars). Expected at least 200 characters.")
-                return
-                
-            if len(private_key) < 500:
-                messagebox.showerror("Error", f"Private key seems too short ({len(private_key)} chars). Expected at least 500 characters.")
-                return
-            
-            # Import main module to access import function
-            try:
-                import sys
-                sys.path.insert(0, str(ROOT_DIR))
-                import main
-                
-                # Call the import function from main.py with passphrase if provided
-                result = main.import_external_rsa_keys(
-                    private=private_key, 
-                    public=public_key, 
-                    passphrase=passphrase if passphrase else None
-                )
-                
-                if result and result[0]:
-                    messagebox.showinfo("Success", "RSA keys imported successfully!")
-                    passphrase_info = f"{os.linesep}Passphrase: {'provided' if passphrase else 'not provided'}"
-                    set_info(info_text, f"✓ RSA keys imported and saved{os.linesep}Public Key: {len(public_key)} chars{os.linesep}Private Key: {len(private_key)} chars{passphrase_info}")
-                    key_dialog.destroy()
-                else:
-                    error_msg = "Failed to import keys. Please check:\n"
-                    error_msg += "• Keys are in valid format\n"
-                    error_msg += "• Private key passphrase is correct (if encrypted)\n"
-                    error_msg += "• No extra text mixed with key data"
-                    messagebox.showerror("Import Failed", error_msg)
-            except Exception as e:
-                import traceback
-                error_details = traceback.format_exc()
-                print(f"Import error details:\n{error_details}")
-                messagebox.showerror("Error", f"Import failed: {str(e)}\n\nCheck console for details.")
-        
         import_btn = customtkinter.CTkButton(
             key_dialog,
             text="Import Keys",
             font=customtkinter.CTkFont(size=14, weight="bold"),
-            command=import_keys,
+            command=lambda: import_keys(public_key_text, private_key_text, passphrase_text, info_text, key_dialog),
             fg_color="#1f6aa5",
             hover_color="#144870"
         )
@@ -252,7 +267,7 @@ def menu_action(app, info_text, choice: str):
         set_info(info_text, f"Generate RSA key pair ({choice})")
         
         # Import main module
-        import main
+       # import main
         
         # Create a dialog for key generation with optional passphrase
         gen_dialog = customtkinter.CTkToplevel(app)
@@ -280,18 +295,19 @@ def menu_action(app, info_text, choice: str):
             gen_dialog,
             width=600,
             height=40,
-            show="*",
+           # show="*",
             placeholder_text="Enter passphrase or leave empty"
         )
         passphrase_entry.pack(pady=5)
         
-        # Function to generate keys
-        def generate_keys():
+        # Generate button callback
+        def on_generate():
+            import main
             passphrase = passphrase_entry.get().strip()
             
             # Extract key size from choice
             key_size = int(choice.replace("-bit", ""))
-            
+            gen_dialog.destroy()
             # Generate RSA key pair
             private_key, public_key, _ = main.generate_rsa_key_pair(
                 passphrase=passphrase if passphrase else None, 
@@ -306,10 +322,25 @@ def menu_action(app, info_text, choice: str):
                     with open('public_key.pem', 'w') as f:
                         f.write(public_key)
                     
-                    # Prepare message for dialog
+                    # Prepare message for info panel
                     message = f"✓ Successfully generated {choice} RSA key pair\n"
                     if passphrase:
                         message += "✓ Private key encrypted with passphrase\n\n"
+                        message += "="*50 + "\n"
+                        message += f"Save this Passphrase - it will only be displayed once"     # {RED}{passphrase}{RESET}\n"
+                        # Scrollable text widget for information
+                        # Right frame for labels
+                       #right_frame = customtkinter.CTkFrame(main_frame)
+                       #right_frame.pack(side="right", fill="both", expand=True)
+
+                      #  info_text = customtkinter.CTkTextbox(right_frame, height=300, width=350,
+                      #                                      font=customtkinter.CTkFont(size=14,bold=True,fg_font_color=RED))
+                      #  info_text.pack(pady=10, padx=20, fill="both", expand=True)
+
+                        set_info(info_text,message)
+                        message = f"{passphrase}\n"
+                        set_info(info_text=info_text,content=message,color=RED, bold=True)
+                        message = "="*50 + "\n"
                     else:
                         message += "⚠️ Private key NOT encrypted (no passphrase provided)\n\n"
                     
@@ -318,13 +349,9 @@ def menu_action(app, info_text, choice: str):
                     message += "=== PRIVATE KEY (Keep this secret!) ===\n"
                     message += private_key
                     
-                    # Display keys in dialog
-                    display_message_dialog(app, f"{choice} RSA Key Pair", message)
+                    # Display message using set_info
+                    set_info(info_text, message)
                     
-                    # Update info panel
-                    set_info(info_text, f"✓ Keys generated and saved to private_key.pem and public_key.pem")
-                    
-                    gen_dialog.destroy()
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save keys to files: {str(e)}")
             else:
@@ -334,12 +361,12 @@ def menu_action(app, info_text, choice: str):
             gen_dialog,
             text="Generate Keys",
             font=customtkinter.CTkFont(size=14, weight="bold"),
-            command=generate_keys,
+            command=on_generate,
             fg_color="#1f6aa5",
             hover_color="#144870"
         )
         generate_btn.pack(pady=20)
-        
+       # generate_btn.destroy()
         return
     if choice == "Public Key":
         clear_info(info_text)
@@ -353,22 +380,543 @@ def menu_action(app, info_text, choice: str):
         set_info(info_text, private_key)
         return
     if choice == "Encrypt Data":
+        import main
+        message = ""
         clear_info(info_text)
-        set_info(info_text, "Enter data to encrypt in a forthcoming dialog.")
+        set_info(info_text, "Enter data to encrypt in the dialog.")
+        
+        # Create a dialog window for data encryption
+        encrypt_dialog = customtkinter.CTkToplevel(app)
+        encrypt_dialog.title("Encrypt Data")
+        encrypt_dialog.geometry("700x500")
+        encrypt_dialog.grab_set()
+        
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            encrypt_dialog,
+            text="Enter the data you want to encrypt below:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        instructions.pack(pady=(20, 10))
+        
+        # Data input section
+        data_label = customtkinter.CTkLabel(
+            encrypt_dialog,
+            text="Data to Encrypt:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        data_label.pack(pady=(10, 5), anchor="w", padx=20)
+        
+        data_text = customtkinter.CTkTextbox(
+            encrypt_dialog,
+            height=200,
+            width=650,
+            font=customtkinter.CTkFont(size=11)
+        )
+        data_text.pack(pady=5, padx=20)
+        
+        # Encrypt button
+        def perform_encryption(message=message):
+            data_to_encrypt = data_text.get("1.0", "end").strip()
+            
+            if not data_to_encrypt:
+                messagebox.showerror("Error", "Please enter data to encrypt!")
+                return
+            
+            try:
+                # Call the encryption function
+                encrypted_dict, key = main.encrypt_data_not_binary(data_to_encrypt)
+                
+                if encrypted_dict and key:
+                    # Extract the encrypted data from the dictionary
+                    # The key is the encryption key (as string), value is encrypted data
+                    key_str = key.decode() if isinstance(key, bytes) else key
+                    encrypted_data = encrypted_dict.get(key_str, "")
+                    
+                    # Prepare message for info panel
+                    message += f"✓ Data encrypted successfully\n\n"
+                    message += f"===== ORIGINAL DATA =====\n"
+                    message += f"{data_to_encrypt}\n\n"
+                    message +=  "==END OF ORIGINAL DATA==\n"
+                    message +=  "========================\n\n"
+                    message +=  "=== ENCRYPTED DATA ===\n"
+                    message += f"{encrypted_data}\n\n"
+                    message +=  "=== ENCRYPTION KEY ===\n"
+                    message += f"{key_str}\n\n"
+                    message += "⚠️ Save both the encrypted data and key securely!"
+                    
+                    # Display result using set_info
+                    set_info(info_text, message)
+                    
+                    messagebox.showinfo("Success", "Data encrypted successfully!\nCheck the information panel for encrypted data and key.")
+                    encrypt_dialog.destroy()
+                else:
+                    messagebox.showerror("Error", "Encryption failed. Please try again.")
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"Encryption error details:\n{error_details}")
+                messagebox.showerror("Error", f"Encryption failed: {str(e)}\n\nCheck console for details.")
+        
+        encrypt_btn = customtkinter.CTkButton(
+            encrypt_dialog,
+            text="Encrypt",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=perform_encryption,
+            fg_color="#1f6aa5",
+            hover_color="#144870"
+        )
+        encrypt_btn.pack(pady=20)
+        
         return
     if choice == "Encrypt File":
         clear_info(info_text)
-        files = choose_files(multiple=True)
-        set_info(info_text, f"Selected files to encrypt: {os.linesep}" + os.linesep.join(files))
+        set_info(info_text, "Select files to encrypt...")
+        
+        # Create a dialog window for file encryption
+        file_encrypt_dialog = customtkinter.CTkToplevel(app)
+        file_encrypt_dialog.title("Encrypt Files")
+        file_encrypt_dialog.geometry("700x600")
+        file_encrypt_dialog.grab_set()
+        
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            file_encrypt_dialog,
+            text="Select files to encrypt\nEncrypted files will be saved as: file<encrypted>.ext",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        instructions.pack(pady=(20, 10))
+        
+        # Selected files display
+        files_label = customtkinter.CTkLabel(
+            file_encrypt_dialog,
+            text="Selected Files:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        files_label.pack(pady=(10, 5), anchor="w", padx=20)
+        
+        files_listbox = customtkinter.CTkTextbox(
+            file_encrypt_dialog,
+            height=200,
+            width=650,
+            font=customtkinter.CTkFont(size=11)
+        )
+        files_listbox.pack(pady=5, padx=20)
+        files_listbox.configure(state="disabled")
+        
+        # Store selected files
+        selected_files = []
+        
+        # Choose files button
+        def choose_files_to_encrypt():
+            nonlocal selected_files
+            selected_files = choose_files(multiple=True)
+            
+            if selected_files:
+                files_listbox.configure(state="normal")
+                files_listbox.delete("1.0", "end")
+                files_listbox.insert("1.0", "\n".join(selected_files))
+                files_listbox.configure(state="disabled")
+        
+        choose_btn = customtkinter.CTkButton(
+            file_encrypt_dialog,
+            text="Choose Files",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=choose_files_to_encrypt,
+            fg_color="#1f6aa5",
+            hover_color="#144870"
+        )
+        choose_btn.pack(pady=10)
+        
+        # Encrypt button
+        def perform_file_encryption():
+            import main
+            from cryptography.fernet import Fernet
+            
+            if not selected_files:
+                messagebox.showerror("Error", "Please select files to encrypt!")
+                return
+            
+            try:
+                new_files = []
+                file_keys = []
+                encrypted_data_list = []
+                
+                # Encrypt each file
+                for file_path in selected_files:
+                    encrypted_data, file_key, original_name = main.encrypt_file_with_fernet(file_path)
+                    
+                    if encrypted_data and file_key:
+                        # Create encrypted filename: file<encrypted>.ext
+                        file_parts = os.path.splitext(original_name)
+                        encrypted_filename = f"{file_parts[0]}<encrypted>{file_parts[1]}"
+                        encrypted_file_path = os.path.join(os.path.dirname(file_path), encrypted_filename)
+                        
+                        # Save encrypted data to file
+                        with open(encrypted_file_path, 'w') as f:
+                            f.write(encrypted_data)
+                        
+                        new_files.append(encrypted_file_path)
+                        file_keys.append(file_key)
+                        encrypted_data_list.append((original_name, encrypted_filename, file_key))
+                
+                if new_files:
+                    # Prepare message for info panel
+                    message = f"✓ Successfully encrypted {len(new_files)} file(s)\n\n"
+                    message += "=== ORIGINAL FILES ===\n"
+                    for orig_file in selected_files:
+                        message += f"{orig_file}\n"
+                    message += "\n=== ENCRYPTED FILES ===\n"
+                    for new_file in new_files:
+                        message += f"{new_file}\n"
+                    
+             #       # Display encryption keys - one per file with clear separation
+             #       message += "\n" + "="*50 + "\n"
+             #       message += "=== ENCRYPTION KEYS ===\n"
+             #       message += "="*50 + "\n"
+                    mykeys =[]
+                    #for _, (_, _,key) in enumerate(encrypted_data_list, 1):
+                      # message += f"\n--- FILE {i} ---\n"
+                      # message += f"Original: {orig_name}\n"
+                      # message += f"Encrypted: {enc_name}\n"
+                  #      message += f"KEY: \n {key}\n"
+                    for key in  encrypted_data_list:
+                        mykeys.append(f"{key[2]}")
+                  #      if i < len(encrypted_data_list):
+                  #          message += "-" * 40 + "\n"
+                    message += "\n" + "="*50 + "\n"
+                    message += f"KEYS IN STRICT ORDER\n\n"
+                    for i , row in enumerate(mykeys,1):
+                        message += f"{row}\n"  # Show first 20 chars
+         
+                    message += "\n" + "="*50 + "\n"
+                    message += "⚠️ IMPORTANT: Save these encryption keys securely!\n"
+                    message += "You will need them to decrypt the files later.\n"
+                    message += "="*50
+                    
+                    # Display result using set_info
+                    set_info(info_text, message)
+                    
+                    messagebox.showinfo("Success", f"Successfully encrypted {len(new_files)} file(s)!\nCheck the information panel for details.")
+                    file_encrypt_dialog.destroy()
+                else:
+                    messagebox.showerror("Error", "File encryption failed. Please try again.")
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"File encryption error details:\n{error_details}")
+                messagebox.showerror("Error", f"File encryption failed: {str(e)}\n\nCheck console for details.")
+        
+        encrypt_files_btn = customtkinter.CTkButton(
+            file_encrypt_dialog,
+            text="Encrypt Files",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=perform_file_encryption,
+            fg_color="#1f6aa5",
+            hover_color="#144870"
+        )
+        encrypt_files_btn.pack(pady=20)
+        
         return
     if choice == "Decrypt Data":
         clear_info(info_text)
-        set_info(info_text, "Enter encrypted data and key/passphrase in a forthcoming dialog.")
+        set_info(info_text, "Enter encrypted data and key to decrypt...")
+        
+        # Create a dialog window for data decryption
+        decrypt_dialog = customtkinter.CTkToplevel(app)
+        decrypt_dialog.title("Decrypt Data")
+        decrypt_dialog.geometry("700x600")
+        decrypt_dialog.grab_set()
+        
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            decrypt_dialog,
+            text="Enter the encrypted data and encryption key below:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        instructions.pack(pady=(20, 10))
+        
+        # Encrypted data section
+        encrypted_label = customtkinter.CTkLabel(
+            decrypt_dialog,
+            text="Encrypted Data:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        encrypted_label.pack(pady=(10, 5), anchor="w", padx=20)
+        
+        encrypted_text = customtkinter.CTkTextbox(
+            decrypt_dialog,
+            height=200,
+            width=650,
+            font=customtkinter.CTkFont(size=11)
+        )
+        encrypted_text.pack(pady=5, padx=20)
+        
+        # Key section
+        key_label = customtkinter.CTkLabel(
+            decrypt_dialog,
+            text="Encryption Key:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        key_label.pack(pady=(10, 5), anchor="w", padx=20)
+        
+        key_entry = customtkinter.CTkEntry(
+            decrypt_dialog,
+            width=650,
+            height=40,
+            font=customtkinter.CTkFont(size=11)
+        )
+        key_entry.pack(pady=5, padx=20)
+        
+        # Decrypt button
+        def perform_data_decryption():
+            import main
+            
+            encrypted_data = encrypted_text.get("1.0", "end").strip()
+            key = key_entry.get().strip()
+            
+            if not encrypted_data or not key:
+                messagebox.showerror("Error", "Please enter both encrypted data and key!")
+                return
+            
+            try:
+                # Call the decryption function
+                decrypted_result = main.decrypt_data_not_binary(encrypted_data, key)
+                
+                if decrypted_result:
+                    # Prepare message for info panel
+                    message = "✓ Data decrypted successfully\n\n"
+                    message += "=== ENCRYPTED DATA ===\n"
+                    message += f"{encrypted_data}\n\n"
+                    message += "=== DECRYPTED DATA ===\n"
+                    message += f"{decrypted_result}\n\n"
+                    message += "=== KEY USED ===\n"
+                    message += f"{key}"
+                    
+                    # Display result using set_info
+                    set_info(info_text, message)
+                    
+                    messagebox.showinfo("Success", "Data decrypted successfully!\nCheck the information panel for decrypted data.")
+                    decrypt_dialog.destroy()
+                else:
+                    messagebox.showerror("Error", "Decryption failed. Please check your encrypted data and key.")
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"Decryption error details:\n{error_details}")
+                messagebox.showerror("Error", f"Decryption failed: {str(e)}\n\nCheck console for details.")
+        
+        decrypt_btn = customtkinter.CTkButton(
+            decrypt_dialog,
+            text="Decrypt",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=perform_data_decryption,
+            fg_color="#1f6aa5",
+            hover_color="#144870"
+        )
+        decrypt_btn.pack(pady=20)
+        
         return
     if choice == "Decrypt File":
         clear_info(info_text)
-        files = choose_files(multiple=True)
-        set_info(info_text, f"Selected files to decrypt: {os.linesep}" + os.linesep.join(files))
+        set_info(info_text, "Select encrypted files to decrypt...")
+        
+        # Create a dialog window for file decryption
+        file_decrypt_dialog = customtkinter.CTkToplevel(app)
+        file_decrypt_dialog.title("Decrypt Files")
+        file_decrypt_dialog.geometry("700x600")
+        file_decrypt_dialog.grab_set()
+        
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            file_decrypt_dialog,
+            text="Select encrypted files (file<encrypted>.ext format)\nEnter encryption keys (one per line, matching file order):",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        instructions.pack(pady=(20, 10))
+        
+        # Selected files display
+        files_label = customtkinter.CTkLabel(
+            file_decrypt_dialog,
+            text="Selected Encrypted Files:",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        files_label.pack(pady=(10, 5), anchor="w", padx=20)
+        
+        files_listbox = customtkinter.CTkTextbox(
+            file_decrypt_dialog,
+            height=150,
+            width=650,
+            font=customtkinter.CTkFont(size=11)
+        )
+        files_listbox.pack(pady=5, padx=20)
+        files_listbox.configure(state="disabled")
+        
+        # Store selected files
+        selected_files = []
+        
+        # Choose files button
+        def choose_files_to_decrypt():
+            nonlocal selected_files
+            selected_files = choose_files(multiple=True)
+            
+            if selected_files:
+                files_listbox.configure(state="normal")
+                files_listbox.delete("1.0", "end")
+                files_listbox.insert("1.0", "\n".join(selected_files))
+                files_listbox.configure(state="disabled")
+        
+        choose_btn = customtkinter.CTkButton(
+            file_decrypt_dialog,
+            text="Choose Encrypted Files",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=choose_files_to_decrypt,
+            fg_color="#1f6aa5",
+            hover_color="#144870"
+        )
+        choose_btn.pack(pady=10)
+        
+        # Key section - Changed to textbox for multiple keys
+        key_label = customtkinter.CTkLabel(
+            file_decrypt_dialog,
+            text="Encryption Keys (one per line, in same order as files):",
+            font=customtkinter.CTkFont(size=14, weight="bold")
+        )
+        key_label.pack(pady=(10, 5), anchor="w", padx=20)
+        
+        key_textbox = customtkinter.CTkTextbox(
+            file_decrypt_dialog,
+            width=650,
+            height=120,
+            font=customtkinter.CTkFont(size=11)
+        )
+        key_textbox.pack(pady=5, padx=20)
+        
+        # Decrypt button
+        def perform_file_decryption():
+            import main
+            
+            if not selected_files:
+                messagebox.showerror("Error", "Please select files to decrypt!")
+                return
+            
+            # Get all keys from textbox (one per line)
+            keys_text = key_textbox.get("1.0", "end").strip()
+            if not keys_text:
+                messagebox.showerror("Error", "Please enter the encryption key(s)!")
+                return
+            
+            # Split keys by line, remove blank lines, and strip whitespace
+            keys = [line.strip() for line in keys_text.splitlines() if line.strip()]
+            
+            # Debug: print keys to console
+            print(f"Number of files: {len(selected_files)}")
+            print(f"Number of keys parsed: {len(keys)}")
+            for i, key in enumerate(keys, 1):
+                print(f"Key {i} (length {len(key)}): {key[:20]}...")  # Show first 20 chars
+            
+            # Check if number of keys matches number of files
+            if len(keys) != len(selected_files):
+                messagebox.showerror(
+                    "Error", 
+                    f"Number of keys ({len(keys)}) doesn't match number of files ({len(selected_files)})!\n\n"
+                    f"Please provide one key per line, matching the order of selected files.\n\n"
+                    f"Keys found: {len(keys)}\nFiles selected: {len(selected_files)}"
+                )
+                return
+            
+            try:
+                decrypted_files = []
+                decryption_info = []
+                failed_files = []
+                
+                # Decrypt each file with its corresponding key
+                for file_path, key in zip(selected_files, keys):
+                    try:
+                        # Read encrypted data from file
+                        with open(file_path, 'r') as f:
+                            encrypted_data = f.read().strip()
+                        
+                        # Remove <encrypted> from filename to get original name
+                        original_filename = os.path.basename(file_path).replace("<encrypted>", "")
+                        output_path = os.path.join(os.path.dirname(file_path), original_filename)
+                        
+                        # Decrypt the file
+                        success = main.decrypt_file_with_fernet(encrypted_data, key, output_path)
+                        
+                        print(f"Decryption result for {os.path.basename(file_path)}: {success} (type: {type(success)})")
+                        
+                        if success:
+                            decrypted_files.append(output_path)
+                            decryption_info.append((os.path.basename(file_path), original_filename, key, True))
+                        else:
+                            failed_files.append(os.path.basename(file_path))
+                            decryption_info.append((os.path.basename(file_path), original_filename, key, False))
+                    except Exception as e:
+                        failed_files.append(os.path.basename(file_path))
+                        decryption_info.append((os.path.basename(file_path), original_filename, key, False))
+                        print(f"Error decrypting {file_path}: {e}")
+                
+                if decrypted_files or failed_files:
+                    # Prepare message for info panel
+                    message = ""
+                    if decrypted_files:
+                        message += f"✓ Successfully decrypted {len(decrypted_files)} file(s)\n"
+                    if failed_files:
+                        message += f"❌ Failed to decrypt {len(failed_files)} file(s)\n"
+                    message += "\n"
+                    
+                    # Show detailed info for each file
+                    message += "="*50 + "\n"
+                    message += "=== DECRYPTION DETAILS ===\n"
+                    message += "="*50 + "\n"
+                    
+                    for i, (enc_name, dec_name, key, success) in enumerate(decryption_info, 1):
+                        message += f"\n--- FILE {i} ---\n"
+                        message += f"Encrypted: {enc_name}\n"
+                        message += f"Decrypted: {dec_name}\n"
+                        message += f"Key Used: {key}\n"
+                        message += f"Status: {'✓ Success' if success else '❌ Failed'}\n"
+                        if i < len(decryption_info):
+                            message += "-" * 40 + "\n"
+                    
+                    message += "\n" + "="*50 + "\n"
+                    if decrypted_files:
+                        message += "✓ Successful files have been restored to their original names\n"
+                    if failed_files:
+                        message += "❌ Failed files may have incorrect keys\n"
+                    message += "="*50
+                    
+                    # Display result using set_info
+                    set_info(info_text, message)
+                    
+                    # Show appropriate message
+                    if decrypted_files and not failed_files:
+                        messagebox.showinfo("Success", f"Successfully decrypted {len(decrypted_files)} file(s)!\nCheck the information panel for details.")
+                    elif decrypted_files and failed_files:
+                        messagebox.showwarning("Partial Success", f"Decrypted {len(decrypted_files)} file(s), but {len(failed_files)} failed!\nCheck the information panel for details.")
+                    else:
+                        messagebox.showerror("Error", f"All {len(failed_files)} file(s) failed to decrypt!\nPlease check your keys.")
+                    
+                    file_decrypt_dialog.destroy()
+                else:
+                    messagebox.showerror("Error", "File decryption failed. Please check your key.")
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"File decryption error details:\n{error_details}")
+                messagebox.showerror("Error", f"File decryption failed: {str(e)}\n\nCheck console for details.")
+        
+        decrypt_files_btn = customtkinter.CTkButton(
+            file_decrypt_dialog,
+            text="Decrypt Files",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=perform_file_decryption,
+            fg_color="#1f6aa5",
+            hover_color="#144870"
+        )
+        decrypt_files_btn.pack(pady=20)
+        
         return
 
 
@@ -407,7 +955,7 @@ def show_main_menu(title: str) -> None:
     dropdown_map: dict[str, list[str]] = {
         "Import RSA Key": ["RSA Key Data", "RSA Key File"],
         "Generate RSA Key Pair": ["2048-bit", "3072-bit", "4096-bit"],
-        "Retrieve RSA Keys": ["Public Key", "Private Key"],
+        "Display the RSA Keys": ["Public Key", "Private Key"],
         "Encrypt/Decrypt": ["Encrypt Data", "Encrypt File", "Decrypt Data", "Decrypt File"],
         "Settings": ["Theme", "Security", "Paths"],
         "Help": ["User Guide", "FAQ", "About"],
@@ -417,7 +965,7 @@ def show_main_menu(title: str) -> None:
     buttons_data = [
         ("Import RSA Key", "Import existing RSA keys from files"),
         ("Generate RSA Key Pair", "Create new RSA public/private key pair"),
-        ("Retrieve RSA Keys", "Display stored RSA keys information"),
+        ("Display the RSA Keys", "Display stored RSA keys information"),
         ("Encrypt/Decrypt", "Encrypt or decrypt data/files"),
         ("Settings", "Configure application preferences and options"),
         ("Help", "Access user guide and support information"),
@@ -431,7 +979,7 @@ def show_main_menu(title: str) -> None:
     
     # Scrollable text widget for information
     info_text = customtkinter.CTkTextbox(right_frame, height=300, width=350,
-                                        font=customtkinter.CTkFont(size=14))
+                                        font=customtkinter.CTkFont(size=14,))
     info_text.pack(pady=10, padx=20, fill="both", expand=True)
     
     # Create buttons with blue shadow
