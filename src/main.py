@@ -3,9 +3,29 @@ import pathlib
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
+from pathlib import Path
 import json
 import base64
 
+
+def get_keys_directory() -> Path:
+    """Get a user-writable directory for storing encryption keys.
+    Returns a Path object to ~/Documents/TinyEncryptor_Keys/
+    Creates the directory if it doesn't exist.
+    """
+    # Use Documents folder which is always writable
+    keys_dir = Path.home() / "Documents" / "TinyEncryptor_Keys"
+    
+    # Create directory if it doesn't exist
+    try:
+        keys_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Could not create keys directory at {keys_dir}: {e}")
+        # Fallback to home directory if Documents is not accessible
+        keys_dir = Path.home() / ".tinyencryptor_keys"
+        keys_dir.mkdir(parents=True, exist_ok=True)
+    
+    return keys_dir
 
 
 def open_file(file_path: str) -> dict:
@@ -74,13 +94,14 @@ def generate_rsa_key_pair(passphrase=None, key_size=2048) -> tuple:
 
 def retrieve_rsa_keys() -> tuple:
     """Retrieve and display saved RSA keys from files"""
-    private_key_file = 'private_key.pem'
-    public_key_file = 'public_key.pem'
+    keys_dir = get_keys_directory()
+    private_key_file = keys_dir / 'private_key.pem'
+    public_key_file = keys_dir / 'public_key.pem'
     
     try:
         # Check if files exist
-        if not os.path.exists(private_key_file) or not os.path.exists(public_key_file):
-            print("RSA key files not found. Please generate keys first using option 3.")
+        if not private_key_file.exists() or not public_key_file.exists():
+            print(f"RSA key files not found in {keys_dir}. Please generate keys first using option 3.")
             return False
         
         # Read private key
@@ -143,14 +164,18 @@ def import_external_rsa_keys(private : str = None, public : str = None, passphra
                 print("⚠️  Private key appears to be encrypted - passphrase will be needed for decryption")
                 pass
             
-            # Save keys to files
-            with open('public_key.pem', 'w') as f:
+            # Save keys to files in user-writable directory
+            keys_dir = get_keys_directory()
+            public_key_path = keys_dir / 'public_key.pem'
+            private_key_path = keys_dir / 'private_key.pem'
+            
+            with open(public_key_path, 'w') as f:
                 f.write(public_key_formatted)
-            with open('private_key.pem', 'w') as f:
+            with open(private_key_path, 'w') as f:
                 f.write(private_key_formatted)
             
             print("\n✅ RSA keys imported successfully!")
-            print("Keys saved to 'public_key.pem' and 'private_key.pem'")
+            print(f"Keys saved to {keys_dir}")
             
             # Check if private key is encrypted
             if "ENCRYPTED PRIVATE KEY" in private_key_formatted:
@@ -358,14 +383,18 @@ def import_keys_from_file(filepath: str) -> bool:
             print("❌ Failed to format keys from notes.txt")
             return False
         
-        # Save keys to files
-        with open('public_key.pem', 'w') as f:
+        # Save keys to files in user-writable directory
+        keys_dir = get_keys_directory()
+        public_key_path = keys_dir / 'public_key.pem'
+        private_key_path = keys_dir / 'private_key.pem'
+        
+        with open(public_key_path, 'w') as f:
             f.write(public_key_formatted)
-        with open('private_key.pem', 'w') as f:
+        with open(private_key_path, 'w') as f:
             f.write(private_key_formatted)
         
         print("\n✅ RSA keys imported from notes.txt successfully!")
-        print("Keys saved to 'public_key.pem' and 'private_key.pem'")
+        print(f"Keys saved to {keys_dir}")
         
         # Check if private key is encrypted
         if "ENCRYPTED PRIVATE KEY" in private_key_formatted:
@@ -425,7 +454,7 @@ def decrypt_file_with_fernet(encrypted_data: str, key: str, output_filename: str
         print(f'Error decrypting file: {e}')
         return False
 
-def encrypt_file_with_rsa(file_path: str, public_key_path: str = 'public_key.pem') -> tuple:
+def encrypt_file_with_rsa(file_path: str, public_key_path: str = None) -> tuple:
     """Encrypt a file using RSA public key"""
     try:
         # Read file in binary mode
@@ -454,7 +483,7 @@ def encrypt_file_with_rsa(file_path: str, public_key_path: str = 'public_key.pem
         print(f'Error encrypting file with RSA: {e}')
         return None, None
 
-def decrypt_file_with_rsa(encrypted_data: str, output_filename: str = None, private_key_path: str = 'private_key.pem', passphrase: str = None) -> bool:
+def decrypt_file_with_rsa(encrypted_data: str, output_filename: str = None, private_key_path: str = None, passphrase: str = None) -> bool:
     """Decrypt a file using RSA private key"""
     try:
         # Decrypt the base64 data
@@ -523,12 +552,17 @@ def show_file_menu(prompt: str) -> str:
     
     return str(files[file_index])
 
-def encrypt_with_rsa_public_key(data: str, public_key_path: str = 'public_key.pem') -> str:
+def encrypt_with_rsa_public_key(data: str, public_key_path: str = None) -> str:
     """Encrypt data using RSA public key"""
     try:
+        # Use default path in keys directory if not specified
+        if public_key_path is None:
+            keys_dir = get_keys_directory()
+            public_key_path = keys_dir / 'public_key.pem'
+        
         # Check if public key file exists
         if not os.path.exists(public_key_path):
-            print(f"Public key file '{public_key_path}' not found. Please generate RSA keys first.")
+            print(f"Public key file not found in {get_keys_directory()}. Please generate RSA keys first.")
             return None
         
         # Load public key
@@ -561,12 +595,17 @@ def encrypt_with_rsa_public_key(data: str, public_key_path: str = 'public_key.pe
         print(f'Debug info - Data size: {len(data.encode("utf-8"))} bytes')
         return None
 
-def decrypt_with_rsa_private_key(encrypted_data: str, private_key_path: str = 'private_key.pem', passphrase: str = None) -> str:
+def decrypt_with_rsa_private_key(encrypted_data: str, private_key_path: str = None, passphrase: str = None) -> str:
     """Decrypt data using RSA private key"""
     try:
+        # Use default path in keys directory if not specified
+        if private_key_path is None:
+            keys_dir = get_keys_directory()
+            private_key_path = keys_dir / 'private_key.pem'
+        
         # Check if private key file exists
         if not os.path.exists(private_key_path):
-            print(f"Private key file '{private_key_path}' not found.")
+            print(f"Private key file not found in {get_keys_directory()}.")
             return None
         
         # Load private key
@@ -939,11 +978,15 @@ def main():
                 save_choice = input("\nWould you like to save the keys to files? (y/n): ").lower()
                 if save_choice == 'y':
                     try:
-                        with open('private_key.pem', 'w') as f:
+                        keys_dir = get_keys_directory()
+                        private_key_path = keys_dir / 'private_key.pem'
+                        public_key_path = keys_dir / 'public_key.pem'
+                        
+                        with open(private_key_path, 'w') as f:
                             f.write(private_key)
-                        with open('public_key.pem', 'w') as f:
+                        with open(public_key_path, 'w') as f:
                             f.write(public_key)
-                        print("Keys saved to 'private_key.pem' and 'public_key.pem'")
+                        print(f"Keys saved to {keys_dir}")
                         if used_passphrase:
                             print("⚠️  Remember your passphrase! You'll need it to use the private key.")
                     except Exception as e:

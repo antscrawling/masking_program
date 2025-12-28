@@ -15,6 +15,26 @@ BLACK = f"{'#0d0c0d'}"
 RESET = f"{'#ffffff'}"
 
 
+def get_keys_directory() -> Path:
+    """Get a user-writable directory for storing encryption keys.
+    Returns a Path object to ~/Documents/TinyEncryptor_Keys/
+    Creates the directory if it doesn't exist.
+    """
+    # Use Documents folder which is always writable
+    keys_dir = Path.home() / "Documents" / "TinyEncryptor_Keys"
+    
+    # Create directory if it doesn't exist
+    try:
+        keys_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Could not create keys directory at {keys_dir}: {e}")
+        # Fallback to home directory if Documents is not accessible
+        keys_dir = Path.home() / ".tinyencryptor_keys"
+        keys_dir.mkdir(parents=True, exist_ok=True)
+    
+    return keys_dir
+
+
 def load_settings() -> dict:
     """Load settings from JSON file, return default settings if file doesn't exist"""
     default_settings = {
@@ -439,15 +459,20 @@ def menu_action(app, info_text, choice: str):
             )
 
             if private_key and public_key:
-                # Save to files
+                # Save to files in user-writable directory
                 try:
-                    with open("private_key.pem", "w") as f:
+                    keys_dir = get_keys_directory()
+                    private_key_path = keys_dir / "private_key.pem"
+                    public_key_path = keys_dir / "public_key.pem"
+                    
+                    with open(private_key_path, "w") as f:
                         f.write(private_key)
-                    with open("public_key.pem", "w") as f:
+                    with open(public_key_path, "w") as f:
                         f.write(public_key)
 
                     # Prepare message for info panel
                     message = f"✓ Successfully generated {choice} RSA key pair\n"
+                    message += f"✓ Keys saved to: {keys_dir}\n"
                     passphrase_to_display = None
 
                     if passphrase:
@@ -1286,7 +1311,7 @@ For production use, consider hardware security modules (HSM)."""
 
         # Replace placeholders with actual paths
         encrypted_location = str(ROOT_DIR)
-        key_location = str(ROOT_DIR)
+        key_location = str(get_keys_directory())
         security_text = security_text.replace("{encrypted_location}", encrypted_location)
         security_text = security_text.replace("{key_location}", key_location)
 
@@ -1350,17 +1375,17 @@ For production use, consider hardware security modules (HSM)."""
         paths_info.pack(pady=10, padx=10, fill="both", expand=True)
 
         # Build path information
+        keys_dir = get_keys_directory()
         paths_text = f"""Application Directory Paths:
 
 1. Root Directory:
    {ROOT_DIR}
    • Contains main application files
-   • Default location for key files
 
-2. Key Files:
-   • Public Key: {ROOT_DIR / 'public_key.pem'}
-   • Private Key: {ROOT_DIR / 'private_key.pem'}
-   • Fernet Key: {ROOT_DIR / 'fernet_encryption_key.txt'}
+2. Key Files Directory:
+   {keys_dir}
+   • Public Key: {keys_dir / 'public_key.pem'}
+   • Private Key: {keys_dir / 'private_key.pem'}
 
 3. Working Directory:
    {os.getcwd()}
@@ -1403,6 +1428,27 @@ encrypting or decrypting files using the file dialogs."""
                     "Error", f"Failed to open directory: {str(e)}"
                 )
 
+        def open_keys_dir():
+            import subprocess
+            import platform
+
+            system = platform.system()
+            keys_dir = get_keys_directory()
+            try:
+                if system == "Darwin":  # macOS
+                    subprocess.run(["open", str(keys_dir)])
+                elif system == "Windows":
+                    subprocess.run(["explorer", str(keys_dir)])
+                else:  # Linux and others
+                    subprocess.run(["xdg-open", str(keys_dir)])
+                messagebox.showinfo(
+                    "Success", f"Opened keys directory: {keys_dir}"
+                )
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to open directory: {str(e)}"
+                )
+
         open_dir_btn = customtkinter.CTkButton(
             paths_dialog,
             text="Open Root Directory",
@@ -1412,6 +1458,16 @@ encrypting or decrypting files using the file dialogs."""
             hover_color="#144870",
         )
         open_dir_btn.pack(pady=10)
+
+        open_keys_btn = customtkinter.CTkButton(
+            paths_dialog,
+            text="Open Keys Directory",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=open_keys_dir,
+            fg_color="#1f6aa5",
+            hover_color="#144870",
+        )
+        open_keys_btn.pack(pady=10)
 
         # Close button
         close_btn = customtkinter.CTkButton(
