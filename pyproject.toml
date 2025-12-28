@@ -1,7 +1,9 @@
 [project]
 name = "masking-program"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "TinyIT Program for Encryption and Decryption using Masking Techniques"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
+authors = [
+    {name = "Jose Ibay", email = "ourcatisfat@gmail.com"}]

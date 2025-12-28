@@ -1201,6 +1201,7 @@ def menu_action(app, info_text, choice: str):
             settings["theme"] = selected_theme
             save_settings(settings)
             
+        
             set_info(
                 info_text,
                 f"✓ Theme changed to: {selected_theme}\n\nThe new theme has been applied and saved to settings.",
