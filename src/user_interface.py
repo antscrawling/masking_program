@@ -8,7 +8,6 @@ from cryptography.fernet import Fernet
 
 
 ROOT_DIR = Path(__file__).parent.resolve()
-SETTINGS_FILE = ROOT_DIR / "settings.json"
 BLUE = f"{'#1f6aa5'}"
 RED = f"{'#c91658'}"
 BLACK = f"{'#0d0c0d'}"
@@ -41,9 +40,12 @@ def load_settings() -> dict:
         "theme": "System",  # Default theme
     }
     
+    # Use the same directory as keys for settings
+    settings_file = get_keys_directory() / "settings.json"
+    
     try:
-        if SETTINGS_FILE.exists():
-            with open(SETTINGS_FILE, "r") as f:
+        if settings_file.exists():
+            with open(settings_file, "r") as f:
                 settings = json.load(f)
                 # Merge with defaults to ensure all keys exist
                 return {**default_settings, **settings}
@@ -55,8 +57,11 @@ def load_settings() -> dict:
 
 def save_settings(settings: dict) -> bool:
     """Save settings to JSON file"""
+    # Use the same directory as keys for settings
+    settings_file = get_keys_directory() / "settings.json"
+    
     try:
-        with open(SETTINGS_FILE, "w") as f:
+        with open(settings_file, "w") as f:
             json.dump(settings, f, indent=4)
         return True
     except Exception as e:
