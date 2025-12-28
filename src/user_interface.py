@@ -78,8 +78,6 @@ class App(customtkinter.CTk):
         else:
             menu_action(self, self.info_text, txt)      
    
-            
-
 def display_message_dialog(parent, title: str, message: str):
     """Display a message in a dialog window"""
     msg_dialog = customtkinter.CTkToplevel(parent)
@@ -125,10 +123,10 @@ def set_info(info_text, content: str, color: str = BLACK, bold: bool = False, it
     info_text.delete("1.0", "end")
     info_text.insert("1.0", content)
     
-    # Apply color formatting using tags (font styling not supported by customtkinter)
-    #info_text.tag_add("custom_format", "1.0", "end")
-    info_text.tag_config("custom_format", foreground=color)
-    
+    # Apply color formatting using tags with dynamic tag names based on color
+    tag_name = f"color_{color.replace('#', '')}"
+    info_text.tag_add(tag_name, "1.0", "end")
+    info_text.tag_config(tag_name, foreground=color)
     info_text.configure(state="disabled")
 
 
@@ -206,7 +204,6 @@ def import_keys(public_key_text, private_key_text, passphrase_text, info_text, k
         error_details = traceback.format_exc()
         print(f"Import error details:\n{error_details}")
         messagebox.showerror("Error", f"Import failed: {str(e)}\n\nCheck console for details.")
-
 
 def menu_action(app, info_text, choice: str):
     """Handler for dropdown selections and Exit"""
@@ -377,23 +374,15 @@ def menu_action(app, info_text, choice: str):
                     
                     # Prepare message for info panel
                     message = f"✓ Successfully generated {choice} RSA key pair\n"
+                    passphrase_to_display = None
+                    
                     if passphrase:
                         message += "✓ Private key encrypted with passphrase\n\n"
                         message += "="*50 + "\n"
-                        message += f"Save this Passphrase - it will only be displayed once"     # {RED}{passphrase}{RESET}\n"
-                        # Scrollable text widget for information
-                        # Right frame for labels
-                       #right_frame = customtkinter.CTkFrame(main_frame)
-                       #right_frame.pack(side="right", fill="both", expand=True)
-
-                      #  info_text = customtkinter.CTkTextbox(right_frame, height=300, width=350,
-                      #                                      font=customtkinter.CTkFont(size=14,bold=True,fg_font_color=RED))
-                      #  info_text.pack(pady=10, padx=20, fill="both", expand=True)
-
-                        set_info(info_text,message)
-                        message = f"{passphrase}\n"
-                        set_info(info_text=info_text,content=message,color=RED, bold=True)
-                        message = "="*50 + "\n"
+                        message += f"Save this Passphrase - it will only be displayed once\n"
+                        passphrase_to_display = passphrase
+                        message += "\n"  # Placeholder for passphrase that will be inserted
+                        message += "="*50 + "\n\n"
                     else:
                         message += "⚠️ Private key NOT encrypted (no passphrase provided)\n\n"
                     
@@ -404,6 +393,23 @@ def menu_action(app, info_text, choice: str):
                     
                     # Display message using set_info
                     set_info(info_text, message)
+                    
+                    # Now append passphrase in red if present
+                    if passphrase_to_display:
+                        info_text.configure(state="normal")
+                        # Find the position after "Save this Passphrase - it will only be displayed once\n"
+                        content = info_text.get("1.0", "end")
+                        insert_marker = "Save this Passphrase - it will only be displayed once\n"
+                        marker_pos = content.find(insert_marker)
+                        if marker_pos != -1:
+                            # Calculate line and column for insertion
+                            lines_before = content[:marker_pos + len(insert_marker)].count('\n')
+                            insert_pos = f"{lines_before + 1}.0"
+                            info_text.insert(insert_pos, f"[{passphrase_to_display}]\n")
+                            end_pos = f"{lines_before + 2}.0"
+                            info_text.tag_add("passphrase_red", insert_pos, end_pos)
+                            info_text.tag_config("passphrase_red", foreground=RED)
+                        info_text.configure(state="disabled")
                     
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save keys to files: {str(e)}")
@@ -973,6 +979,9 @@ def menu_action(app, info_text, choice: str):
         return
 
 
+
+
+
 def show_main_menu(title: str) -> None:
     app = App(
         geometry="1000x1000",
@@ -991,7 +1000,6 @@ def show_main_menu(title: str) -> None:
         description=None,
         info_content=None
     )
-    
     # Now create the widgets
     app.title_label = customtkinter.CTkLabel(
         app, 
@@ -1068,30 +1076,30 @@ def show_main_menu(title: str) -> None:
     
     app.info_content = """Welcome to TinyEncryptor!
 
-This application provides secure encryption and 
-decryption capabilities using industry-standard 
-algorithms.
+    This application provides secure encryption and 
+    decryption capabilities using industry-standard 
+    algorithms.
 
-Features:
-• RSA Encryption: Asymmetric encryption for secure key exchange
-• Fernet Encryption: Symmetric encryption for fast file encryption
-• Key Management: Generate, import, and manage encryption keys
-• File Processing: Encrypt/decrypt data or files with ease
+    Features:
+    • RSA Encryption: Asymmetric encryption for secure key exchange
+    • Fernet Encryption: Symmetric encryption for fast file encryption
+    • Key Management: Generate, import, and manage encryption keys
+    • File Processing: Encrypt/decrypt data or files with ease
 
-Instructions:
-1. Generate or import RSA keys first
-2. Choose encryption method
-3. Select files to process
-4. Save or share encrypted files securely
-5. Maintain Multiple RSA Key Pairs for different use cases
+    Instructions:
+    1. Generate or import RSA keys first
+    2. Choose encryption method
+    3. Select files to process
+    4. Save or share encrypted files securely
+    5. Maintain Multiple RSA Key Pairs for different use cases
 
-Decryption Process:
-1. Enter or select the encrypted data/file
-2. Provide the correct key/passphrase
-3. Save the decrypted output securely
+    Decryption Process:
+    1. Enter or select the encrypted data/file
+    2. Provide the correct key/passphrase
+    3. Save the decrypted output securely
 
-Security Notice:
-Keep your private keys secure and never share them. Always backup your keys in a safe location."""
+    Security Notice:
+    Keep your private keys secure and never share them. Always backup your keys in a safe location."""
     
     app.info_text.insert("0.0", app.info_content)
     app.info_text.configure(state="disabled")
