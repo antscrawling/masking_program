@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import customtkinter
 import tkinter as tk
@@ -7,10 +8,40 @@ from cryptography.fernet import Fernet
 
 
 ROOT_DIR = Path(__file__).parent.resolve()
+SETTINGS_FILE = ROOT_DIR / "settings.json"
 BLUE = f"{'#1f6aa5'}"
 RED = f"{'#c91658'}"
 BLACK = f"{'#0d0c0d'}"
 RESET = f"{'#ffffff'}"
+
+
+def load_settings() -> dict:
+    """Load settings from JSON file, return default settings if file doesn't exist"""
+    default_settings = {
+        "theme": "System",  # Default theme
+    }
+    
+    try:
+        if SETTINGS_FILE.exists():
+            with open(SETTINGS_FILE, "r") as f:
+                settings = json.load(f)
+                # Merge with defaults to ensure all keys exist
+                return {**default_settings, **settings}
+        return default_settings
+    except Exception as e:
+        print(f"Error loading settings: {e}")
+        return default_settings
+
+
+def save_settings(settings: dict) -> bool:
+    """Save settings to JSON file"""
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(settings, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving settings: {e}")
+        return False
 
 
 class App(customtkinter.CTk):
@@ -128,13 +159,21 @@ def clear_info(info_text):
 def set_info(
     info_text,
     content: str,
-    color: str = BLACK,
+    color: str = None,
     bold: bool = False,
     italic: bool = False,
 ):
     """Set content in the information panel with custom formatting
     Note: bold and italic parameters are not used due to customtkinter limitations
     """
+    # Auto-detect appropriate text color based on theme if not specified
+    if color is None:
+        current_mode = customtkinter.get_appearance_mode()
+        if current_mode.lower() == "dark":
+            color = "#FFFFFF"  # White text for dark mode
+        else:
+            color = BLACK  # Black text for light mode
+    
     info_text.configure(state="normal")
     info_text.delete("1.0", "end")
     info_text.insert("1.0", content)
@@ -1103,9 +1142,301 @@ def menu_action(app, info_text, choice: str):
         decrypt_files_btn.pack(pady=20)
 
         return
+    if choice == "Theme":
+        clear_info(info_text)
+        set_info(info_text, "Theme settings: configure application appearance")
+
+        # Create a dialog window for theme settings
+        theme_dialog = customtkinter.CTkToplevel(app)
+        theme_dialog.title("Theme Settings")
+        theme_dialog.geometry("600x500")
+        theme_dialog.grab_set()
+
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            theme_dialog,
+            text="Configure Application Theme",
+            font=customtkinter.CTkFont(size=18, weight="bold"),
+        )
+        instructions.pack(pady=(20, 10))
+
+        # Current theme display
+        current_theme = customtkinter.get_appearance_mode()
+        current_label = customtkinter.CTkLabel(
+            theme_dialog,
+            text=f"Current Theme: {current_theme}",
+            font=customtkinter.CTkFont(size=14),
+        )
+        current_label.pack(pady=10)
+
+        # Theme selection
+        theme_label = customtkinter.CTkLabel(
+            theme_dialog,
+            text="Select Theme:",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+        )
+        theme_label.pack(pady=(20, 10))
+
+        theme_var = customtkinter.StringVar(value=current_theme)
+
+        # Theme radio buttons
+        themes = ["Light", "Dark", "System"]
+        for theme in themes:
+            radio = customtkinter.CTkRadioButton(
+                theme_dialog,
+                text=theme,
+                variable=theme_var,
+                value=theme,
+                font=customtkinter.CTkFont(size=13),
+            )
+            radio.pack(pady=5)
+
+        # Apply button
+        def apply_theme():
+            selected_theme = theme_var.get()
+            customtkinter.set_appearance_mode(selected_theme.lower())
+            
+            # Save theme to settings file
+            settings = load_settings()
+            settings["theme"] = selected_theme
+            save_settings(settings)
+            
+            set_info(
+                info_text,
+                f"✓ Theme changed to: {selected_theme}\n\nThe new theme has been applied and saved to settings.",
+            )
+            messagebox.showinfo(
+                "Success", f"Theme changed to {selected_theme} and saved successfully!"
+            )
+            theme_dialog.destroy()
+
+        apply_btn = customtkinter.CTkButton(
+            theme_dialog,
+            text="Apply Theme",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=apply_theme,
+            fg_color="#1f6aa5",
+            hover_color="#144870",
+        )
+        apply_btn.pack(pady=30)
+
+        return
+    if choice == "Security":
+        clear_info(info_text)
+        set_info(info_text, "Security settings: manage key storage and security options")
+
+        # Create a dialog window for security settings
+        security_dialog = customtkinter.CTkToplevel(app)
+        security_dialog.title("Security Settings")
+        security_dialog.geometry("700x600")
+        security_dialog.grab_set()
+
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            security_dialog,
+            text="Security Configuration",
+            font=customtkinter.CTkFont(size=18, weight="bold"),
+        )
+        instructions.pack(pady=(20, 10))
+
+        # Security information
+        info_frame = customtkinter.CTkFrame(security_dialog)
+        info_frame.pack(pady=20, padx=30, fill="both", expand=True)
+
+        security_info = customtkinter.CTkTextbox(
+            info_frame,
+            height=300,
+            width=600,
+            font=customtkinter.CTkFont(size=12),
+            wrap="word",
+        )
+        security_info.pack(pady=10, padx=10, fill="both", expand=True)
+
+        security_text = """Security Best Practices:
+
+1. Key Storage:
+   • Store private keys in secure locations
+   • Use strong passphrases for key encryption
+   • Never share private keys via insecure channels
+   • Regularly backup keys to secure locations
+
+2. Key Management:
+   • Rotate keys periodically for high-security applications
+   • Use different key pairs for different purposes
+   • Delete old keys securely when no longer needed
+
+3. Encryption Guidelines:
+   • Use 4096-bit RSA keys for maximum security
+   • Always verify encrypted data integrity
+   • Keep encryption software updated
+
+4. File Security:
+   • Encrypted files: {encrypted_location}
+   • Key files: {key_location}
+   • Always maintain backup copies
+
+Current Security Status:
+✓ RSA encryption available
+✓ Fernet symmetric encryption active
+✓ Key files stored locally
+
+⚠️ Warning: This application stores keys locally. 
+For production use, consider hardware security modules (HSM)."""
+
+        # Replace placeholders with actual paths
+        encrypted_location = str(ROOT_DIR)
+        key_location = str(ROOT_DIR)
+        security_text = security_text.replace("{encrypted_location}", encrypted_location)
+        security_text = security_text.replace("{key_location}", key_location)
+
+        security_info.insert("1.0", security_text)
+        security_info.configure(state="disabled")
+
+        # Close button
+        close_btn = customtkinter.CTkButton(
+            security_dialog,
+            text="Close",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=security_dialog.destroy,
+            fg_color="#1f6aa5",
+            hover_color="#144870",
+        )
+        close_btn.pack(pady=20)
+
+        set_info(
+            info_text,
+            "Security settings displayed.\n\nReview security best practices in the dialog window.",
+        )
+
+        return
+    if choice == "Paths":
+        clear_info(info_text)
+        set_info(info_text, "Path settings: view and configure file locations")
+
+        # Create a dialog window for path settings
+        paths_dialog = customtkinter.CTkToplevel(app)
+        paths_dialog.title("Path Settings")
+        paths_dialog.geometry("700x600")
+        paths_dialog.grab_set()
+
+        # Instructions
+        instructions = customtkinter.CTkLabel(
+            paths_dialog,
+            text="Application Paths Configuration",
+            font=customtkinter.CTkFont(size=18, weight="bold"),
+        )
+        instructions.pack(pady=(20, 10))
+
+        # Paths information frame
+        paths_frame = customtkinter.CTkFrame(paths_dialog)
+        paths_frame.pack(pady=20, padx=30, fill="both", expand=True)
+
+        # Display current paths
+        paths_label = customtkinter.CTkLabel(
+            paths_frame,
+            text="Current Application Paths:",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+        )
+        paths_label.pack(pady=(10, 5), anchor="w", padx=10)
+
+        paths_info = customtkinter.CTkTextbox(
+            paths_frame,
+            height=300,
+            width=600,
+            font=customtkinter.CTkFont(size=12),
+            wrap="word",
+        )
+        paths_info.pack(pady=10, padx=10, fill="both", expand=True)
+
+        # Build path information
+        paths_text = f"""Application Directory Paths:
+
+1. Root Directory:
+   {ROOT_DIR}
+   • Contains main application files
+   • Default location for key files
+
+2. Key Files:
+   • Public Key: {ROOT_DIR / 'public_key.pem'}
+   • Private Key: {ROOT_DIR / 'private_key.pem'}
+   • Fernet Key: {ROOT_DIR / 'fernet_encryption_key.txt'}
+
+3. Working Directory:
+   {os.getcwd()}
+   • Current working directory
+   • Default location for encrypted/decrypted files
+
+4. Home Directory:
+   {Path.home()}
+   • User home directory
+
+File Naming Conventions:
+• Encrypted files: filename<encrypted>.ext
+• Decrypted files: filename.ext (original name restored)
+• Key files: *_key.pem format
+
+Note: You can select different directories when 
+encrypting or decrypting files using the file dialogs."""
+
+        paths_info.insert("1.0", paths_text)
+        paths_info.configure(state="disabled")
+
+        # Open directory button
+        def open_root_dir():
+            import subprocess
+            import platform
+
+            system = platform.system()
+            try:
+                if system == "Darwin":  # macOS
+                    subprocess.run(["open", str(ROOT_DIR)])
+                elif system == "Windows":
+                    subprocess.run(["explorer", str(ROOT_DIR)])
+                else:  # Linux and others
+                    subprocess.run(["xdg-open", str(ROOT_DIR)])
+                messagebox.showinfo(
+                    "Success", f"Opened directory: {ROOT_DIR}"
+                )
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to open directory: {str(e)}"
+                )
+
+        open_dir_btn = customtkinter.CTkButton(
+            paths_dialog,
+            text="Open Root Directory",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=open_root_dir,
+            fg_color="#1f6aa5",
+            hover_color="#144870",
+        )
+        open_dir_btn.pack(pady=10)
+
+        # Close button
+        close_btn = customtkinter.CTkButton(
+            paths_dialog,
+            text="Close",
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            command=paths_dialog.destroy,
+            fg_color="#1f6aa5",
+            hover_color="#144870",
+        )
+        close_btn.pack(pady=10)
+
+        set_info(
+            info_text,
+            f"Path settings displayed.\n\nRoot directory: {ROOT_DIR}\nWorking directory: {os.getcwd()}",
+        )
+
+        return
 
 
 def show_main_menu(title: str) -> None:
+    # Load and apply saved theme before creating the app
+    settings = load_settings()
+    saved_theme = settings.get("theme", "System")
+    customtkinter.set_appearance_mode(saved_theme.lower())
+    
     app = App(
         geometry="1000x1000",
         title=title,
@@ -1229,8 +1560,8 @@ def show_main_menu(title: str) -> None:
     Security Notice:
     Keep your private keys secure and never share them. Always backup your keys in a safe location."""
 
-    app.info_text.insert("0.0", app.info_content)
-    app.info_text.configure(state="disabled")
+    # Set initial content with theme-aware colors
+    set_info(app.info_text, app.info_content)
 
     app.mainloop()
 
