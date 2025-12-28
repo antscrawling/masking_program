@@ -12,73 +12,6 @@ BLUE = f"{"#1f6aa5"}"
 RED = f"{"#c91658"}"
 BLACK  = f"{"#0d0c0d"}"
 RESET = f"{"#ffffff"}"
-class App(customtkinter.CTk):
-    def __init__(self,geometry,
-                 title,
-                 button,
-                 title_label,
-                 main_frame,
-                 left_frame=None,
-                 right_frame=None,
-                 button_label=None,
-                 dropdown_map=None,
-                 buttons_data=None,
-                 info_label=None,
-                 info_text=None,
-                 button_text=None,
-                 description=None,
-                 info_content=None,
-                 ):
-        super().__init__()
-        
-        # Set window properties using parent methods, don't override them
-        self.geometry(geometry)
-        self.title(title)
-        
-        # add widgets to app
-        self.button = button    
-        # Main title at the top
-        self.title_label = title_label
-        # Create main container frame
-        self.main_frame = main_frame
-         # Left frame for buttons
-        self.left_frame = left_frame
-        # Right frame for labels
-        self.right_frame = right_frame
-        # Button instructions in left frame
-        self.button_label = button_label
-        # Define dropdown items for each main button
-        self.dropdown_map = dropdown_map                  
-    # Buttons with blue shadow effect
-        self.buttons_data = buttons_data
-    # Information panel in right frame
-        self.info_label = info_label
-        self.info_text = info_text                                       
-        self.button_text = button_text
-        self.description = description
-        self.info_content = info_content
-        
-    def show_dropdown(self,parent, anchor_widget: tk.Widget, items: list[str], menu_action_callback):
-        """Show a native Tk dropdown menu anchored to a widget"""
-        menu = tk.Menu(parent, tearoff=0)
-        for item in items:
-            menu.add_command(label=item, command=lambda val=item: menu_action_callback(val))
-        # Position menu just under the anchor widget
-        x = anchor_widget.winfo_rootx()
-        y = anchor_widget.winfo_rooty() + anchor_widget.winfo_height()
-        try:
-            menu.tk_popup(x, y)
-        finally:
-            menu.grab_release()
-             
-    def on_button_click(self, event,txt, btn):
-        self.items = self.dropdown_map.get(txt)
-        if self.items:
-            self.show_dropdown(self, btn, self.items, lambda val: menu_action(self, self.info_text, val))
-        else:
-            menu_action(self, self.info_text, txt)      
-   
-            
 
 def display_message_dialog(parent, title: str, message: str):
     """Display a message in a dialog window"""
@@ -158,6 +91,20 @@ def retrieve_rsa_keys(type : str) -> str:
         return "❌ Key files not found. Please generate or import keys first."
 
 
+def show_dropdown(parent, anchor_widget: tk.Widget, items: list[str], menu_action_callback):
+    """Show a native Tk dropdown menu anchored to a widget"""
+    menu = tk.Menu(parent, tearoff=0)
+    for item in items:
+        menu.add_command(label=item, command=lambda val=item: menu_action_callback(val))
+    # Position menu just under the anchor widget
+    x = anchor_widget.winfo_rootx()
+    y = anchor_widget.winfo_rooty() + anchor_widget.winfo_height()
+    try:
+        menu.tk_popup(x, y)
+    finally:
+        menu.grab_release()
+
+
 def import_keys(public_key_text, private_key_text, passphrase_text, info_text, key_dialog):
     """Import RSA keys from text widgets"""
     public_key = public_key_text.get("1.0", "end").strip()
@@ -170,11 +117,11 @@ def import_keys(public_key_text, private_key_text, passphrase_text, info_text, k
     
     # Validate minimum lengths
     if len(public_key) < 200:
-        messagebox.showerror("Error", f"Public key seems to short ({len(public_key)} chars). Expected at least 200 characters.")
+        messagebox.showerror("Error", f"Public key seems too short ({len(public_key)} chars). Expected at least 200 characters.")
         return
         
     if len(private_key) < 500:
-        messagebox.showerror("Error", f"Private key seems to short ({len(private_key)} chars). Expected at least 500 characters.")
+        messagebox.showerror("Error", f"Private key seems too short ({len(private_key)} chars). Expected at least 500 characters.")
         return
     
     # Import main module to access import function
@@ -974,50 +921,38 @@ def menu_action(app, info_text, choice: str):
 
 
 def show_main_menu(title: str) -> None:
-    app = App(
-        geometry="1000x1000",
-        title=title,
-        button=None,  # Initialize as None, will set later
-        title_label=None,
-        main_frame=None,
-        left_frame=None,
-        right_frame=None,
-        button_label=None,
-        dropdown_map=None,
-        buttons_data=None,
-        info_label=None,
-        info_text=None,
-        button_text=None,
-        description=None,
-        info_content=None
-    )
+    app = customtkinter.CTk()
+    app.geometry("1000x1000")
+    app.title(title)
     
-    # Now create the widgets
-    app.title_label = customtkinter.CTkLabel(
-        app, 
-        text="Encryptor Main Menu",
-        font=customtkinter.CTkFont(size=24, weight="bold")
-    )
-    app.title_label.pack(pady=20)
     
-    app.main_frame = customtkinter.CTkFrame(app, fg_color="transparent")
-    app.main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+    # Main title at the top
+    title_label = customtkinter.CTkLabel(app, text="Encryptor Main Menu", font=customtkinter.CTkFont(size=24, weight="bold"))
+    title_label.pack(pady=20)
     
-    app.left_frame = customtkinter.CTkFrame(app.main_frame, width=300)
-    app.left_frame.pack(side="left", fill="y", padx=(0, 10))
-    app.left_frame.pack_propagate(False)
+    # Create main container frame
+    main_frame = customtkinter.CTkFrame(app, fg_color="transparent")
+
+    main_frame.pack(fill="both", expand=True, padx=20, pady=10)
     
-    app.right_frame = customtkinter.CTkFrame(app.main_frame)
-    app.right_frame.pack(side="right", fill="both", expand=True)
+    # Left frame for buttons
+    left_frame = customtkinter.CTkFrame(main_frame, width=300)
+    left_frame.pack(side="left", fill="y", padx=(0, 20))
+    left_frame.pack_propagate(False)
     
-    app.button_label = customtkinter.CTkLabel(
-        app.left_frame, 
-        text="Choose an option:", 
-        font=customtkinter.CTkFont(size=18, weight="bold")
-    )
-    app.button_label.pack(pady=(20, 15))
+    # Right frame for labels
+    right_frame = customtkinter.CTkFrame(main_frame)
+    right_frame.pack(side="right", fill="both", expand=True)
     
-    app.dropdown_map = {
+    # Button instructions in left frame
+    button_label = customtkinter.CTkLabel(left_frame, text="Choose an option:", 
+                                         font=customtkinter.CTkFont(size=18, weight="bold"))
+    button_label.pack(pady=(20, 15))
+
+    # Removed CTkOptionMenu sub_menu; we'll use a native tk.Menu popup per button
+
+    # Define dropdown items for each main button
+    dropdown_map: dict[str, list[str]] = {
         "Import RSA Key": ["RSA Key Data", "RSA Key File"],
         "Generate RSA Key Pair": ["2048-bit", "3072-bit", "4096-bit"],
         "Display the RSA Keys": ["Public Key", "Private Key"],
@@ -1025,8 +960,9 @@ def show_main_menu(title: str) -> None:
         "Settings": ["Theme", "Security", "Paths"],
         "Help": ["User Guide", "FAQ", "About"],
     }
-    
-    app.buttons_data = [
+
+    # Buttons with blue shadow effect
+    buttons_data = [
         ("Import RSA Key", "Import existing RSA keys from files"),
         ("Generate RSA Key Pair", "Create new RSA public/private key pair"),
         ("Display the RSA Keys", "Display stored RSA keys information"),
@@ -1036,25 +972,20 @@ def show_main_menu(title: str) -> None:
         ("Exit", "Close the application safely")
     ]
     
-    app.info_label = customtkinter.CTkLabel(
-        app.right_frame, 
-        text="Information Panel", 
-        font=customtkinter.CTkFont(size=20, weight="bold")
-    )
-    app.info_label.pack(pady=(20, 15))
+    # Information panel in right frame
+    info_label = customtkinter.CTkLabel(right_frame, text="Information Panel", 
+                                       font=customtkinter.CTkFont(size=20, weight="bold"))
+    info_label.pack(pady=(20, 15))
     
-    app.info_text = customtkinter.CTkTextbox(
-        app.right_frame, 
-        height=300, 
-        width=350,
-        font=customtkinter.CTkFont(size=14)
-    )
-    app.info_text.pack(pady=10, padx=20, fill="both", expand=True)
+    # Scrollable text widget for information
+    info_text = customtkinter.CTkTextbox(right_frame, height=300, width=350,
+                                        font=customtkinter.CTkFont(size=14,))
+    info_text.pack(pady=10, padx=20, fill="both", expand=True)
     
     # Create buttons with blue shadow
-    for i, (button_text, description) in enumerate(app.buttons_data):
+    for i, (button_text, description) in enumerate(buttons_data):
         button = customtkinter.CTkButton(
-            app.left_frame,
+            left_frame,
             text=button_text,
             font=customtkinter.CTkFont(size=16, weight="bold"),
             fg_color="#1f6aa5",
@@ -1064,13 +995,21 @@ def show_main_menu(title: str) -> None:
             command=lambda txt=button_text: None
         )
         button.pack(pady=4, padx=20, fill="x")
-        button.bind("<Button-1>", lambda e, txt=button_text, btn=button: app.on_button_click(e, txt, btn))
-    
-    app.info_content = """Welcome to TinyEncryptor!
 
-This application provides secure encryption and 
-decryption capabilities using industry-standard 
-algorithms.
+        # Attach dropdown on left-click if items exist
+        def on_button_click(event, txt=button_text, btn=button):
+            items = dropdown_map.get(txt)
+            if items:
+                show_dropdown(app, btn, items, lambda val: menu_action(app, info_text, val))
+            else:
+                menu_action(app, info_text, txt)
+
+        button.bind("<Button-1>", on_button_click)
+    
+    # Insert default information
+    info_content = """Welcome to TinyEncryptor!
+
+This application provides secure encryption and decryption capabilities using industry-standard algorithms.
 
 Features:
 • RSA Encryption: Asymmetric encryption for secure key exchange
@@ -1093,8 +1032,8 @@ Decryption Process:
 Security Notice:
 Keep your private keys secure and never share them. Always backup your keys in a safe location."""
     
-    app.info_text.insert("0.0", app.info_content)
-    app.info_text.configure(state="disabled")
+    info_text.insert("0.0", info_content)
+    info_text.configure(state="disabled")  # Make it read-only
     
     app.mainloop()
 
