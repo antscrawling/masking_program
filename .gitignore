@@ -10,6 +10,4 @@ wheels/
 .venv
 encrypted_data.json
 notes.txt
-private_key.pem
-public_key.pem
 src/unotes.txt
