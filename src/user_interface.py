@@ -9,6 +9,8 @@ from cryptography.fernet import Fernet
 
 ROOT_DIR = Path(__file__).parent.resolve()
 BLUE = f"{'#1f6aa5'}"
+DARK_BLUE = f"{'#144870'}"
+LIGHT_BLUE = f"{'#4a9eff'}"
 RED = f"{'#c91658'}"
 BLACK = f"{'#0d0c0d'}"
 RESET = f"{'#ffffff'}"
@@ -21,7 +23,7 @@ def get_keys_directory() -> Path:
     """
     # Use Documents folder which is always writable
     keys_dir = Path.home() / "Documents" / "TinyEncryptor_Keys"
-    
+
     # Create directory if it doesn't exist
     try:
         keys_dir.mkdir(parents=True, exist_ok=True)
@@ -30,7 +32,7 @@ def get_keys_directory() -> Path:
         # Fallback to home directory if Documents is not accessible
         keys_dir = Path.home() / ".tinyencryptor_keys"
         keys_dir.mkdir(parents=True, exist_ok=True)
-    
+
     return keys_dir
 
 
@@ -39,10 +41,10 @@ def load_settings() -> dict:
     default_settings = {
         "theme": "System",  # Default theme
     }
-    
+
     # Use the same directory as keys for settings
     settings_file = get_keys_directory() / "settings.json"
-    
+
     try:
         if settings_file.exists():
             with open(settings_file, "r") as f:
@@ -59,7 +61,7 @@ def save_settings(settings: dict) -> bool:
     """Save settings to JSON file"""
     # Use the same directory as keys for settings
     settings_file = get_keys_directory() / "settings.json"
-    
+
     try:
         with open(settings_file, "w") as f:
             json.dump(settings, f, indent=4)
@@ -168,8 +170,8 @@ def display_message_dialog(parent, title: str, message: str):
         text="Close",
         font=customtkinter.CTkFont(size=14, weight="bold"),
         command=msg_dialog.destroy,
-        fg_color="#1f6aa5",
-        hover_color="#144870",
+        fg_color=LIGHT_BLUE,
+        hover_color=DARK_BLUE
     )
     close_btn.pack(pady=20)
 
@@ -198,7 +200,7 @@ def set_info(
             color = "#FFFFFF"  # White text for dark mode
         else:
             color = BLACK  # Black text for light mode
-    
+
     info_text.configure(state="normal")
     info_text.delete("1.0", "end")
     info_text.insert("1.0", content)
@@ -378,8 +380,8 @@ def menu_action(app, info_text, choice: str):
                 info_text,
                 key_dialog,
             ),
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         import_btn.pack(pady=20)
 
@@ -469,7 +471,7 @@ def menu_action(app, info_text, choice: str):
                     keys_dir = get_keys_directory()
                     private_key_path = keys_dir / "private_key.pem"
                     public_key_path = keys_dir / "public_key.pem"
-                    
+
                     with open(private_key_path, "w") as f:
                         f.write(private_key)
                     with open(public_key_path, "w") as f:
@@ -537,8 +539,8 @@ def menu_action(app, info_text, choice: str):
             text="Generate Keys",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=on_generate,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE
         )
         generate_btn.pack(pady=20)
         # generate_btn.destroy()
@@ -647,8 +649,8 @@ def menu_action(app, info_text, choice: str):
             text="Encrypt",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=perform_encryption,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE
         )
         encrypt_btn.pack(pady=20)
 
@@ -707,8 +709,8 @@ def menu_action(app, info_text, choice: str):
             text="Choose Files",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=choose_files_to_encrypt,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         choose_btn.pack(pady=10)
 
@@ -813,8 +815,8 @@ def menu_action(app, info_text, choice: str):
             text="Encrypt Files",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=perform_file_encryption,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         encrypt_files_btn.pack(pady=20)
 
@@ -918,8 +920,8 @@ def menu_action(app, info_text, choice: str):
             text="Decrypt",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=perform_data_decryption,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         decrypt_btn.pack(pady=20)
 
@@ -978,8 +980,8 @@ def menu_action(app, info_text, choice: str):
             text="Choose Encrypted Files",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=choose_files_to_decrypt,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         choose_btn.pack(pady=10)
 
@@ -1166,8 +1168,8 @@ def menu_action(app, info_text, choice: str):
             text="Decrypt Files",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=perform_file_decryption,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         decrypt_files_btn.pack(pady=20)
 
@@ -1225,13 +1227,12 @@ def menu_action(app, info_text, choice: str):
         def apply_theme():
             selected_theme = theme_var.get()
             customtkinter.set_appearance_mode(selected_theme.lower())
-            
+
             # Save theme to settings file
             settings = load_settings()
             settings["theme"] = selected_theme
             save_settings(settings)
-            
-        
+
             set_info(
                 info_text,
                 f"✓ Theme changed to: {selected_theme}\n\nThe new theme has been applied and saved to settings.",
@@ -1246,15 +1247,17 @@ def menu_action(app, info_text, choice: str):
             text="Apply Theme",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=apply_theme,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         apply_btn.pack(pady=30)
 
         return
     if choice == "Security":
         clear_info(info_text)
-        set_info(info_text, "Security settings: manage key storage and security options")
+        set_info(
+            info_text, "Security settings: manage key storage and security options"
+        )
 
         # Create a dialog window for security settings
         security_dialog = customtkinter.CTkToplevel(app)
@@ -1317,7 +1320,9 @@ For production use, consider hardware security modules (HSM)."""
         # Replace placeholders with actual paths
         encrypted_location = str(ROOT_DIR)
         key_location = str(get_keys_directory())
-        security_text = security_text.replace("{encrypted_location}", encrypted_location)
+        security_text = security_text.replace(
+            "{encrypted_location}", encrypted_location
+        )
         security_text = security_text.replace("{key_location}", key_location)
 
         security_info.insert("1.0", security_text)
@@ -1329,8 +1334,8 @@ For production use, consider hardware security modules (HSM)."""
             text="Close",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=security_dialog.destroy,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         close_btn.pack(pady=20)
 
@@ -1389,8 +1394,8 @@ For production use, consider hardware security modules (HSM)."""
 
 2. Key Files Directory:
    {keys_dir}
-   • Public Key: {keys_dir / 'public_key.pem'}
-   • Private Key: {keys_dir / 'private_key.pem'}
+   • Public Key: {keys_dir / "public_key.pem"}
+   • Private Key: {keys_dir / "private_key.pem"}
 
 3. Working Directory:
    {os.getcwd()}
@@ -1425,13 +1430,9 @@ encrypting or decrypting files using the file dialogs."""
                     subprocess.run(["explorer", str(ROOT_DIR)])
                 else:  # Linux and others
                     subprocess.run(["xdg-open", str(ROOT_DIR)])
-                messagebox.showinfo(
-                    "Success", f"Opened directory: {ROOT_DIR}"
-                )
+                messagebox.showinfo("Success", f"Opened directory: {ROOT_DIR}")
             except Exception as e:
-                messagebox.showerror(
-                    "Error", f"Failed to open directory: {str(e)}"
-                )
+                messagebox.showerror("Error", f"Failed to open directory: {str(e)}")
 
         def open_keys_dir():
             import subprocess
@@ -1446,21 +1447,17 @@ encrypting or decrypting files using the file dialogs."""
                     subprocess.run(["explorer", str(keys_dir)])
                 else:  # Linux and others
                     subprocess.run(["xdg-open", str(keys_dir)])
-                messagebox.showinfo(
-                    "Success", f"Opened keys directory: {keys_dir}"
-                )
+                messagebox.showinfo("Success", f"Opened keys directory: {keys_dir}")
             except Exception as e:
-                messagebox.showerror(
-                    "Error", f"Failed to open directory: {str(e)}"
-                )
+                messagebox.showerror("Error", f"Failed to open directory: {str(e)}")
 
         open_dir_btn = customtkinter.CTkButton(
             paths_dialog,
             text="Open Root Directory",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=open_root_dir,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         open_dir_btn.pack(pady=10)
 
@@ -1469,8 +1466,8 @@ encrypting or decrypting files using the file dialogs."""
             text="Open Keys Directory",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=open_keys_dir,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         open_keys_btn.pack(pady=10)
 
@@ -1480,8 +1477,8 @@ encrypting or decrypting files using the file dialogs."""
             text="Close",
             font=customtkinter.CTkFont(size=14, weight="bold"),
             command=paths_dialog.destroy,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=LIGHT_BLUE,
+            hover_color=DARK_BLUE,
         )
         close_btn.pack(pady=10)
 
@@ -1498,7 +1495,7 @@ def show_main_menu(title: str) -> None:
     settings = load_settings()
     saved_theme = settings.get("theme", "System")
     customtkinter.set_appearance_mode(saved_theme.lower())
-    
+
     app = App(
         geometry="1000x1000",
         title=title,
@@ -1583,10 +1580,10 @@ def show_main_menu(title: str) -> None:
             app.left_frame,
             text=button_text,
             font=customtkinter.CTkFont(size=16, weight="bold"),
-            fg_color="#1f6aa5",
-            hover_color="#144870",
+            fg_color=BLUE,
+            hover_color=DARK_BLUE,
             border_width=2,
-            border_color="#4a9eff",
+            border_color=LIGHT_BLUE,
             command=lambda txt=button_text: None,
         )
         button.pack(pady=4, padx=20, fill="x")
